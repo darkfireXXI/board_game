@@ -24,7 +24,7 @@ Now it might help to start visualizing a birds eye view of the board with each s
  [0. 0. 0. 0. 0. 0. 0. 0. 0. 0.],  
  [0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]]
  </pre>
- If we imagine the board like this with x and y as indices the neighbor condition can be writting as:
+ If we imagine the board like this with x and y as indices the neighbor condition can be written as:
  <pre>
 board[x, y] - board[x-1, y] <= 2
 board[x, y] - board[x+1, y] <= 2
