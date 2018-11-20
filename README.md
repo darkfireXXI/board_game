@@ -46,7 +46,7 @@ Now with these constraints and our boundary condition we would like to randomize
 </pre>
 I implore you to check that none of our in game physics are broken. Take a minute to think about it because what comes next might be a surprise. Let's say you have the 0/flat board on a table. All squares have height = 0. Now you pick it up and hold it out over the air... what happens?  
 
-You get the playing field known as the Mariana Trench (left). At the other extreme you have the field known as Mt. Everest (right):
+You get the playing field known as the Mariana Trench (left) because with nothing to support the block each square will fall it's maximum 2 units from it's neighbors (mechanism to physically allow this is a mechanical engineering problem for another time). At the other extreme you have the field known as Mt. Everest (right):
 <pre>
 [[ -2.  -2.  -2.  -2.  -2.  -2.  -2.  -2.  -2.  -2.]   [[ 2.  2.  2.  2.  2.  2.  2.  2.  2.  2.]
  [ -2.  -4.  -4.  -4.  -4.  -4.  -4.  -4.  -4.  -2.]    [ 2.  4.  4.  4.  4.  4.  4.  4.  4.  2.]
