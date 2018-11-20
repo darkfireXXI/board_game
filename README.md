@@ -44,7 +44,7 @@ Now with these constraints and our boundary condition we would like to randomize
  [-2. -2.  0.  1. -1.  1.  1.  1.  0. -1.]
  [ 0. -1.  1.  1. -1.  0.  0.  0.  2.  0.]]
 </pre>
-I implore you to check that none of our in game physics are not broken. Take a minute to think about it because what comes next might be a surprise. Let's say you have the 0/flat board on a table. All squares have height = 0. Now you pick it up and hold it out over the air... what happens?  
+I implore you to check that none of our in game physics are broken. Take a minute to think about it because what comes next might be a surprise. Let's say you have the 0/flat board on a table. All squares have height = 0. Now you pick it up and hold it out over the air... what happens?  
 
 You get the playing field known as the Mariana Trench (left). At the other extreme you have the field known as Mt. Everest (right):
 <pre>
@@ -62,9 +62,27 @@ You get the playing field known as the Mariana Trench (left). At the other extre
  
 ### Wood Version
 Turns out I have CAD drawings (January 2016) for the wood version and a rendering:  
-![]()
+![](https://github.com/darkfireXXI/Board_game/blob/images/Render1.png)
 
 ## Board Counting
-Now that we've established the board physics we want to figure out how to different permutations there are between the two extremities shown above?  
+Now that we've established the board physics we want to figure out how many different permutations there are between the two extremities shown above?  
 
-This was the first part of the project I coded. 
+This was the first part of the project I coded. Before jumping into the code, let's start small. A 1x1 board; one square with values -2 <= height <= 2. We can increment throught the combinations and rotate it how we like, but in the end there's only one unique combination. Next we can take a 2x2 board. We start at the lower extremity with each square's height value = -2. With two nested for loops with can increment each square on the board once. How many times do we have to do this?  
+<pre>
+(4 squares * 2 height) - (4 square * -2 height) = 16 total of moves from the lowest board to the highest
+</pre>
+This is not totally accurate though because it assumes we increment one at a time directly moving the square up until we hit the maximum. In reality we record the starting board as a unqiue final board. Then we increment one square one unit and check to see if this new board is already recorded among the unique final boards. These verification checks include 90° rotations and height offsets <= 4 as the largest height difference yielding a duplicate board would be 2--2 = 4. If the new board doesn't match any of the unique final boards we add it to the list.  
+
+This would be be the first of 4 squares to check in the 2x2 example. The 16 moves calculated above should really be thought of as 16 rounds of moves, in each rounding moving one square one unit up, checking to see if it's unique, going back to the start board, and repeating. So we would then return to our starting board and trying moving the additional 3 squares. However, you can easily imagine the remaining 3 squares are cornes and give rotations of the first one. Thus we conclude the first round of 16. In the second round we use the new boards found in round one (there's only 1 in this case) and repeat the process (one at a time incrementing the four squares) to generate new boards. This time we generate 3 new boards and now have 5 unique final boards. Now for the third round each of these 3 new boards goes through the process again. Now one can start to see how even with small board many variations arise. Now let's take a look at the 10x10 analogy:
+<pre>
+sum(Mt. Everest board) - sum(Mariana Trench Board) = 880 total rounds of moves from the lowest board to the highest
+</pre>
+Yeah, so that's not going to be solved anytime soon on a laptop. You can solve the 2x2 example on a laptop, but then for the 3x3 I had to put it on AWS. The 4x4 I started solving, but have yet to complete.  
+
+Here are the results so far:  
+1x1 - 1 combination  
+2x2 - 23 combinations  
+3x3 - 20389 combinations  
+4x4 - >71000 combinations (round 11/48)  
+
+If these numbers seem too big for boards this small good! I'm skeptical myself and encourage people to check the codes used for these calculations in this repository. The brute force methodology is backed up in logic and complexity if one considers the problem imagining the unique boards as leaves/child nodes of a tree with the lowest board as the root. The difference bewteen the sum of the heights of a parent board and the sum of the heights of a child board would always be exactly one.
