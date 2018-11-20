@@ -69,7 +69,7 @@ Now that we've established the board physics we want to figure out how many diff
 
 This was the first part of the project I coded. Before jumping into the code, let's start small. A 1x1 board; one square with values -2 <= height <= 2. We can increment throught the combinations and rotate it how we like, but in the end there's only one unique combination. Next we can take a 2x2 board. We start at the lower extremity with each square's height value = -2. With two nested for loops with can increment each square on the board once. How many times do we have to do this?  
 <pre>
-(4 squares * 2 height) - (4 square * -2 height) = 16 total of moves from the lowest board to the highest
+(4 squares * 2 height) - (4 square * -2 height) = 16 total moves from the lowest board to the highest
 </pre>
 This is not totally accurate though because it assumes we increment one at a time directly moving the square up until we hit the maximum. In reality we record the starting board as a unqiue final board. Then we increment one square one unit and check to see if this new board is already recorded among the unique final boards. These verification checks include 90° rotations and height offsets <= 4 as the largest height difference yielding a duplicate board would be 2--2 = 4. If the new board doesn't match any of the unique final boards we add it to the list.  
 
