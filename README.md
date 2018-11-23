@@ -26,10 +26,10 @@ Now it might help to start visualizing a birds eye view of the board with each s
  </pre>
  If we imagine the board like this with x and y as indices the neighbor condition can be written as:
  <pre>
-board[x, y] - board[x-1, y] <= 2
-board[x, y] - board[x+1, y] <= 2
-board[x, y] - board[x, y-1] <= 2
-board[x, y] - board[x, y+1] <= 2
+abs(board[x, y] - board[x-1, y]) <= 2
+abs(board[x, y] - board[x+1, y]) <= 2
+abs(board[x, y] - board[x, y-1]) <= 2
+abs(board[x, y] - board[x, y+1]) <= 2
  </pre>
 Now with these constraints and our boundary condition we would like to randomize the board to get something that looks like this:
 <pre>
@@ -85,4 +85,20 @@ Here are the results so far:
 3x3 - 20389 combinations  
 4x4 - >71000 combinations (round 11/48)  
 
-If these numbers seem too big for boards this small good! I'm skeptical myself and encourage people to check the codes used for these calculations in this repository. The brute force methodology is backed up in logic and complexity if one considers the problem imagining the unique boards as leaves/child nodes of a tree with the lowest board as the root. The difference bewteen the sum of the heights of a parent board and the sum of the heights of a child board would always be exactly one.
+If these numbers seem too big for boards this small good! I'm skeptical myself and encourage people to check the codes used for these calculations in this repository. The brute force methodology is backed up in logic and complexity if one considers the problem imagining the unique boards as leaves/child nodes of a tree with the lowest board as the root. The difference bewteen the sum of the heights of a parent board and the sum of the heights of a child board would always be exactly one. The tree for a 2x2 board is shown below and confirms the number of combinations found by the 2x2BG.py code. Making any additional moves from the leaf nodes would either break the board's physics or create a repeat of a previous combination (eg. rotation or board heigh values are all +1 - +4 more than a previous board). Hopefully this illustrates that even for a small board the number of combinations quickly gets out of hand and as the boards become bigger we not only have more squares, but also the range of height gets larger. It actually scales with the size of the board: 2x2 ranges from -2 to +2 in height while 10x10 can go from -10 to +10.
+### Video Game Version
+Seeing as I did't have access to a wood shop, but my computer runs Python I began coding the game. Creating a matrix for the board and then using it to make a 3D plot was very straightforward, but randomizing the board was a fun challenge. Furthermore, I didn't want it to be absolutely random, but random within a user defined window. The best way to understand this is to look at the terminal interface to get a sense of the game start up:
+![](https://github.com/darkfireXXI/Board_game/blob/images/terminal_interface.png)  
+Users can select if they want to play on mountains or valleys and from within this selection adjust the extremity of the terrain. **Yet**, even with this level of specification I still **guarantee** that if you pick Medium Mountains 1000 times in a row you will **never** get the same board twice! I encourage you to run game.py and see for yourself!  
+
+Now let's take a look at what this would look like:  
+Mountains:  
+![](https://github.com/darkfireXXI/Board_game/blob/images/mountain.png)  
+Valley:  
+![](https://github.com/darkfireXXI/Board_game/blob/images/valley.png)  
+There's even a Special Terrain called Mixed Mountains & Valleys that generates landscapes like this:  
+![](https://github.com/darkfireXXI/Board_game/blob/images/mixed.png)  
+And no, that doesn't violate board physics.  
+There are some other things going on behind the scenes here that were interesting to code. When plotting the board height differences of 2 will leave unsightly gaps in the render. The easy fix is to simply plot everything a second time under itself to close the gaps. This is not only lazy, but also slows the graphics as then it has to keep track of 200 cubes opposed to a 100 plus some space fillers. A better method can be viewed in the plot_board function in game.py. Another fun feature was getting it color code the cubes according to height.
+### Next Steps
+I began coding the gameplay, but stopped after realizing that I had never actually played this game in any context (eg. on paper using marker caps for figures), so hard coding rules that are highly subject to change as I get user feedback was not on my agenda. Once I've gotten more user feedback from mock games I will continue to code out the game play. In the meantime I've been considering switching from matplotlib plotting to creating my own GUI.
