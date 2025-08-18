@@ -99,7 +99,8 @@ def check_board_is_new_combo(board, results):
         rot_board_hashes.append(board_hash(rot_board))
 
     for rot_board_hash in rot_board_hashes:
-        if results.get(rot_board_hash) is not None:
+        # if results.get(rot_board_hash) is not None:
+        if rot_board_hash in results:
             return False
 
     return True
@@ -188,7 +189,7 @@ def thing(split_results, new_results, all_results, core=-1):
                     new_results.append(board_increment.copy())
 
 
-def worker_generate_boards(split_increments):
+def generate_boards_mp(split_increments):
     new_boards = []
     for board in split_increments:
         increments = generate_all_board_increments(board.copy())
@@ -200,7 +201,7 @@ def worker_generate_boards(split_increments):
                 rotated = np.rot90(rotations[-1])
                 rotations.append(rotated)
                 hashes.add(board_hash(rotated))
-            new_boards.append((board_increment.copy(), board_hash(zeroed), zeroed, hashes))
+            new_boards.append((board_increment.copy(), hashes))
     return new_boards
 
 
@@ -249,7 +250,8 @@ if __name__ in "__main__":
 
     zeroed_board = zero_board(dropped_board.copy())
     manager = mp.Manager()
-    results = {board_hash(zeroed_board): zeroed_board}
+    # results = {board_hash(zeroed_board): zeroed_board}
+    results = {board_hash(zeroed_board)}
     last_round_increments = [initial_board]
     new_increments = []
 
@@ -266,25 +268,14 @@ if __name__ in "__main__":
                     last_round_increments[i : min(i + 10_000 * n_jobs, len(last_round_increments))], n=n_jobs
                 )
                 with mp.Pool(processes=n_jobs) as pool:
-                    results_lists = pool.map(worker_generate_boards, split_increments)
+                    results_lists = pool.map(generate_boards_mp, split_increments)
 
                 for boards in results_lists:
-                    for real, canonical_hash, canonical_board, rotated_hashes in boards:
+                    for board_increment, rotated_hashes in boards:
                         if not any(h in results for h in rotated_hashes):
-                            results[canonical_hash] = canonical_board
-                            new_increments.append(real)
-
-            # split_results = split_list(results, n=n_jobs)
-
-            # jobs = []
-            # for core, split in enumerate(split_results):
-            #     task = mp.Process(target=thing, args=(split, new_results, all_results, core))
-            #     jobs.append(task)
-
-            # for task in jobs:
-            #     task.start()
-            # for task in jobs:
-            #     task.join()
+                            # results[canonical_hash] = canonical_board
+                            results.add(rotated_hashes[0])
+                            new_increments.append(board_increment)
 
         else:
             for last_round_new_increment in tqdm(last_round_increments, leave=False):
@@ -293,7 +284,8 @@ if __name__ in "__main__":
                     is_new_combo = check_board_is_new_combo(board_increment, results)
                     if is_new_combo:
                         zeroed_board = zero_board(board_increment.copy())
-                        results[board_hash(zeroed_board)] = zeroed_board
+                        # results[board_hash(zeroed_board)] = zeroed_board
+                        results.add(board_hash(zeroed_board))
                         new_increments.append(board_increment.copy())
 
         now = time.time()
