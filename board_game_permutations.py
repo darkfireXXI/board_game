@@ -274,7 +274,7 @@ if __name__ in "__main__":
                     for board_increment, rotated_hashes in boards:
                         if not any(h in results for h in rotated_hashes):
                             # results[canonical_hash] = canonical_board
-                            results.add(rotated_hashes[0])
+                            results.add(next(iter(rotated_hashes)))
                             new_increments.append(board_increment)
 
         else:
