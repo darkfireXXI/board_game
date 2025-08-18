@@ -1,6 +1,5 @@
 import argparse
 import multiprocessing as mp
-from concurrent.futures import ProcessPoolExecutor, as_completed
 import time
 
 import numpy as np
@@ -189,8 +188,6 @@ def thing(split_results, new_results, all_results, core=-1):
                     new_results.append(board_increment.copy())
 
 
-
-
 def worker_generate_boards(split_increments):
     new_boards = []
     for board in split_increments:
@@ -205,6 +202,7 @@ def worker_generate_boards(split_increments):
                 hashes.add(board_hash(rotated))
             new_boards.append((board_increment.copy(), board_hash(zeroed), zeroed, hashes))
     return new_boards
+
 
 if __name__ in "__main__":
     parser = argparse.ArgumentParser(
@@ -255,14 +253,18 @@ if __name__ in "__main__":
     last_round_increments = [initial_board]
     new_increments = []
 
+    CHUNK_SIZE = 10_000
+
     start = time.time()
 
     for round_ in range(1, rounds + 1):
         round_start = time.time()
 
-        if n_jobs > 1 and len(last_round_increments) >= 1000:
-            for i in range(0, len(last_round_increments), 10_000 * n_jobs):
-                split_increments = split_list(last_round_increments[i : min(i + 10_000 * n_jobs, len(last_round_increments))], n=n_jobs)
+        if n_jobs > 1 and len(last_round_increments) >= CHUNK_SIZE:
+            for i in tqdm(range(0, len(last_round_increments), CHUNK_SIZE * n_jobs), leave=False):
+                split_increments = split_list(
+                    last_round_increments[i : min(i + 10_000 * n_jobs, len(last_round_increments))], n=n_jobs
+                )
                 with mp.Pool(processes=n_jobs) as pool:
                     results_lists = pool.map(worker_generate_boards, split_increments)
 
@@ -271,7 +273,7 @@ if __name__ in "__main__":
                         if not any(h in results for h in rotated_hashes):
                             results[canonical_hash] = canonical_board
                             new_increments.append(real)
-            
+
             # split_results = split_list(results, n=n_jobs)
 
             # jobs = []
