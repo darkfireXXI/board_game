@@ -70,7 +70,6 @@ def generate_all_board_increments(board):
                 and abs(board[r, max(0, c - 1)] - board[r, c]) <= 2
                 and abs(board[r, min(size - 1, c + 1)] - board[r, c]) <= 2
                 # ensure boundary physics is not broken
-                # ensure boundary physics is not broken
                 and np.all(board >= board_min)
                 and np.all(board <= board_max)
             ):
