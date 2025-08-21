@@ -1,6 +1,8 @@
 import argparse
+import itertools
 import multiprocessing as mp
 import time
+from pathlib import Path
 
 import numpy as np
 from tqdm import tqdm
@@ -134,13 +136,6 @@ if __name__ in "__main__":
         required=False,
     )
     parser.add_argument(
-        "-nb",
-        "--no-border",
-        default=False,
-        action="store_true",
-        help="whether or not to calculate permutations with a border",
-    )
-    parser.add_argument(
         "-n",
         "--n-jobs",
         metavar="\b",
@@ -153,8 +148,10 @@ if __name__ in "__main__":
     args = parser.parse_args()
 
     size = args.size
-    border = args.no_border
     n_jobs = args.n_jobs
+
+    Path("new_increments").mkdir(exist_ok=True)
+    Path("results").mkdir(exist_ok=True)
 
     initial_board = bg_utils.generate_initial_board(size=size)
     dropped_board = drop_board(initial_board)
@@ -162,32 +159,79 @@ if __name__ in "__main__":
     print(f"{rounds} rounds for a {size}x{size} board\n")
 
     zeroed_board = bg_utils.zero_board(dropped_board.copy())
-    # results = {board_hash(zeroed_board): zeroed_board}
     results = {bg_utils.board_hash(zeroed_board)}
+    result_files = []
     last_round_increments = [initial_board]
     new_increments = []
+    increment_files = []
+    new_increment_files = []
 
-    CHUNK_SIZE = 3_000
+    if n_jobs > 1:
+        filename = f"new_increments_{(time.time())}.txt"
+        with open(Path.cwd() / "new_increments" / filename, "w") as file:
+            file.write("\n".join(bg_utils.board_hash(increment) for increment in last_round_increments))
+
+        new_increment_files.append(filename)
+
+    CHUNK_SIZE = 5_000
+    MAX_IN_MEM = 10_000_000
 
     start = time.time()
 
     for round_ in range(1, rounds + 1):
         round_start = time.time()
 
-        if n_jobs > 1 and len(last_round_increments) >= CHUNK_SIZE:
-            for i in tqdm(range(0, len(last_round_increments), CHUNK_SIZE * n_jobs), leave=False):
-                split_increments = bg_utils.split_list(
-                    last_round_increments[i : min(i + CHUNK_SIZE * n_jobs, len(last_round_increments))], n=n_jobs
-                )
-                with mp.Pool(processes=n_jobs) as pool:
-                    results_lists = pool.map(generate_boards_mp, split_increments)
+        if n_jobs > 1:
+            for filename in tqdm(increment_files, leave=False):
+                with open(Path.cwd() / "new_increments" / filename, "r") as file:
+                    increments = file.read().splitlines()
 
-                for boards in results_lists:
-                    for board_increment, rotated_hashes in boards:
+                increments = [bg_utils.board_hash_to_array(increment, size) for increment in increments]
+
+                for i in tqdm(range(0, len(increments), CHUNK_SIZE * n_jobs), leave=False):
+                    split_increments = bg_utils.split_list(
+                        increments[i : min(i + CHUNK_SIZE * n_jobs, len(increments))], n=n_jobs
+                    )
+                    with mp.Pool(processes=n_jobs) as pool:
+                        results_lists = pool.map(generate_boards_mp, split_increments)
+
+                    results_list = list(itertools.chain.from_iterable(results_lists))
+
+                    is_new_check = bg_utils.check_results_vs_files(results_list, result_files)
+
+                    results_list = [r for check, r in zip(is_new_check, results_list) if check]
+                    for board_increment, rotated_hashes in results_list:
                         if not any(h in results for h in rotated_hashes):
-                            # results[canonical_hash] = canonical_board
                             results.add(next(iter(rotated_hashes)))
                             new_increments.append(board_increment)
+
+                    # dump excess results to txt file
+                    if len(results) >= MAX_IN_MEM:
+                        filename = f"results_{int(time.time() * 1e3)}.txt"
+                        with open(Path.cwd() / "results" / filename, "w") as file:
+                            file.write("\n".join(results))
+
+                        results = set()
+                        result_files.append(filename)
+
+                    # dump excess new increments to txt file
+                    if len(new_increments) >= MAX_IN_MEM:
+                        filename = f"new_increments_{int(time.time() * 1e3)}.txt"
+                        with open(Path.cwd() / "new_increments" / filename, "w") as file:
+                            file.write("\n".join(bg_utils.board_hash(increment) for increment in new_increments))
+
+                        new_increments = []
+                        new_increment_files.append(filename)
+
+            filename = f"new_increments_{int(time.time() * 1e3)}.txt"
+            with open(Path.cwd() / "new_increments" / filename, "w") as file:
+                file.write("\n".join(bg_utils.board_hash(increment) for increment in new_increments))
+
+            new_increments = []
+            new_increment_files.append(filename)
+
+            increment_files = new_increment_files.copy()
+            new_increment_files = []
 
         else:
             for last_round_new_increment in tqdm(last_round_increments, leave=False):
@@ -196,13 +240,13 @@ if __name__ in "__main__":
                     is_new_combo = bg_utils.check_board_is_new_combo(board_increment, results)
                     if is_new_combo:
                         zeroed_board = bg_utils.zero_board(board_increment.copy())
-                        # results[board_hash(zeroed_board)] = zeroed_board
                         results.add(bg_utils.board_hash(zeroed_board))
                         new_increments.append(board_increment.copy())
 
-        now = time.time()
+        new_board_count = bg_utils.get_file_item_count(increment_files, "new_increments") + len(new_increments)
+        result_count = bg_utils.get_file_item_count(result_files, "results") + len(results)
         bg_utils.display_round_stats(
-            round_, rounds, start, round_start, now, last_round_increments, new_increments, results
+            round_, rounds, start, round_start, last_round_increments, new_board_count, result_count
         )
 
         last_round_increments = new_increments.copy()
@@ -215,4 +259,5 @@ if __name__ in "__main__":
 
     print(f"{hours_elapsed} hours or {seconds_elapsed} seconds")
 
-    print(f"{len(results)} total unique boards found")
+    result_count = bg_utils.get_file_item_count(result_files, "results")
+    print(f"{result_count + len(results)} total unique boards found")

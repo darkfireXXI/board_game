@@ -1,13 +1,13 @@
-import multiprocessing as mp
 import time
+from pathlib import Path
 
 import numpy as np
-from tqdm import tqdm
 
 
 def generate_initial_board(size):
     initial_board = np.zeros((size, size))
     return initial_board
+
 
 def zero_board(board):
     size = len(board)
@@ -26,6 +26,16 @@ def board_hash(board):
     return board_str
 
 
+def board_hash_to_array(board_hash_str, size):
+    board = np.zeros((size, size))
+    squares = board_hash_str[:-1].split("|")
+    for square in squares:
+        r, c, v = square.split(",")
+        board[int(r), int(c)] = int(float(v))
+
+    return board
+
+
 def check_board_is_new_combo(board, results):
     zeroed_board = zero_board(board.copy())
     rot_boards = [zeroed_board]
@@ -36,7 +46,6 @@ def check_board_is_new_combo(board, results):
         rot_board_hashes.append(board_hash(rot_board))
 
     for rot_board_hash in rot_board_hashes:
-        # if results.get(rot_board_hash) is not None:
         if rot_board_hash in results:
             return False
 
@@ -52,8 +61,34 @@ def split_list(list_, n):
     return splits
 
 
-def display_round_stats(round_, rounds, start, round_start, now, last_round_increments, new_increments, results):
-    round_start
+def check_results_vs_files(results_list, result_files):
+    is_new_check = [True] * len(results_list)
+    for filename in result_files:
+        with open(Path.cwd() / "results" / filename, "r") as file:
+            temp_results = file.read().splitlines()
+
+        temp_results = set(temp_results)
+
+        for i, (board_increment, rotated_hashes) in enumerate(results_list):
+            if any(h in temp_results for h in rotated_hashes):
+                is_new_check[i] = False
+
+    return is_new_check
+
+
+def get_file_item_count(files, folder_name):
+    count = 0
+    for filename in files:
+        with open(Path.cwd() / folder_name / filename, "r") as file:
+            temp = file.read().splitlines()
+        count += len(temp)
+
+    return count
+
+
+def display_round_stats(round_, rounds, start, round_start, now, new_board_count, result_count):
+    now = time.time()
+
     round_seconds_elapsed = round(now - round_start, 1)
     round_hours_elapsed = round(round_seconds_elapsed / 3600, 2)
 
@@ -61,16 +96,9 @@ def display_round_stats(round_, rounds, start, round_start, now, last_round_incr
     hours_elapsed = round(seconds_elapsed / 3600, 2)
 
     print(f"Round {round_}\t\t{round_}/{rounds}\t{round(round_ / rounds * 100, 1)}%")
-    # print("\tnew baords searched\tunique boards found this round\tunique boards found so far")
-    # print(f"\t{len(results)}\t{len(new_increments)}\t{len(results)}")
-    print(f"\t{len(last_round_increments)} new boards searched")
-    print(f"\t{len(new_increments)} unique boards found this round")
-    print(f"\t{len(results)} unique boards found so far")
+    print(f"\t{new_board_count} unique boards found this round")
+    print(f"\t{result_count} unique boards found so far")
     print(f"\t{round_hours_elapsed} hours or {round_seconds_elapsed} seconds elapsed this round")
-    # print(f"\t{round(seconds_elapsed / len(new_increments), 2)}s / iteration")
     print(f"\t{hours_elapsed} hours or {seconds_elapsed} seconds elapsed so far")
-    print(
-        f"\t{round((round_seconds_elapsed / (seconds_elapsed + 1e-6)) * 100, 1)}% of total time spent on this round, "
-        f"{round(seconds_elapsed / (len(new_increments) + 1), 2)} seconds/iteration"
-    )
+    print(f"\t{round((round_seconds_elapsed / (seconds_elapsed + 1e-6)) * 100, 1)}% of total time spent on this round")
     print()
