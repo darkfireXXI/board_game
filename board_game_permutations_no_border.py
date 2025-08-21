@@ -216,7 +216,7 @@ if __name__ in "__main__":
 
         else:
             for last_round_new_increment in tqdm(last_round_increments, leave=False):
-                board_increments = generate_all_board_increments(last_round_new_increment)
+                board_increments = generate_all_board_increments(last_round_new_increment, board_min, board_max)
                 for board_increment in board_increments.values():
                     is_new_combo = bg_utils.check_board_is_new_combo(board_increment, results)
                     if is_new_combo:
