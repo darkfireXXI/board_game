@@ -171,7 +171,7 @@ if __name__ in "__main__":
         with open(Path.cwd() / "new_increments" / filename, "w") as file:
             file.write("\n".join(bg_utils.board_hash(increment) for increment in last_round_increments))
 
-        new_increment_files.append(filename)
+        increment_files.append(filename)
 
     CHUNK_SIZE = 5_000
     MAX_IN_MEM = 10_000_000

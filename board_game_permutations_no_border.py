@@ -133,7 +133,7 @@ if __name__ in "__main__":
 
     initial_board = bg_utils.generate_initial_board(size=size)
     most_extreme_board = find_most_extreme_board(initial_board.copy())
-    board_min, board_max = most_extreme_board[0, 0], most_extreme_board[size - 1, size - 1]
+    board_min, board_max = np.min(most_extreme_board), np.max(most_extreme_board)
     rounds = calculate_rounds(initial_board.copy(), board_min, board_max, print_boards=False)
     print(f"{rounds} rounds for a {size}x{size} board\n")
 
@@ -150,7 +150,7 @@ if __name__ in "__main__":
         with open(Path.cwd() / "new_increments" / filename, "w") as file:
             file.write("\n".join(bg_utils.board_hash(increment) for increment in last_round_increments))
 
-        new_increment_files.append(filename)
+        increment_files.append(filename)
 
     CHUNK_SIZE = 5_000
     MAX_IN_MEM = 10_000_000

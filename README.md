@@ -79,11 +79,14 @@ sum(Mt. Everest board) - sum(Mariana Trench Board) = 880 total rounds of moves f
 </pre>
 Yeah, so that's not going to be solved anytime soon on a laptop. You can solve the 2x2 example on a laptop, but then for the 3x3 I had to put it on AWS. The 4x4 I started solving, but have yet to complete.  
 
-Here are the results so far:  
-1x1 - 1 combination  
-2x2 - 23 combinations  
-3x3 - 20389 combinations  
-4x4 - >71000 combinations (round 11/48)  
+Here are the results so far:
+| Board Size | Permutations with Border | Permutations no Border |
+| --- | --- | --- |
+| 1x1 | 1 | 1 |
+| 2x2 | 23 | 23 |
+| 3x3 | 20,389 | 22,050 |
+| 4x4 | >83,226,298 | ~100,000,000 |
+| 10x10 | ? | ? |
 
 If these numbers seem too big for boards this small good! I'm skeptical myself and encourage people to check the codes used for these calculations in this repository. The brute force methodology is backed up in logic and complexity if one considers the problem imagining the unique boards as leaves/child nodes of a tree with the lowest board as the root. The difference bewteen the sum of the heights of a parent board and the sum of the heights of a child board would always be exactly one. The tree for a 2x2 board is shown below and confirms the number of combinations found by the 2x2BG.py code. Making any additional moves from the leaf nodes would either break the board's physics or create a repeat of a previous combination (eg. rotation or board height values are all +1 to +4 more than a previous board). Hopefully this illustrates that even for a small board the number of combinations quickly gets out of hand and as the boards become bigger we not only have more squares, but also the range of height gets larger. It actually scales with the size of the board: 2x2 ranges from -2 to +2 in height while 10x10 can go from -10 to +10.  
 ![](https://github.com/darkfireXXI/Board_game/blob/images/tree.jpg)
