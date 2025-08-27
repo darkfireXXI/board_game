@@ -7,7 +7,6 @@
 #include <future>
 #include <iostream>
 #include <fstream>
-#include <string>
 #include <vector>
 
 using Board = std::vector<std::vector<int>>;

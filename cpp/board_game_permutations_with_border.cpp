@@ -1,12 +1,5 @@
-#include <algorithm>
-#include <cmath>
-#include <ctime>
-#include <filesystem>
-#include <fstream>
-#include <future>
 #include <thread>
 #include <unordered_set>
-#include <vector>
 
 #include "board_game_permutations_utils.h"
 
