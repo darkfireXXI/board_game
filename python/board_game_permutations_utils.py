@@ -9,14 +9,7 @@ def generate_initial_board(size):
     return initial_board
 
 
-def zero_board(board):
-    size = len(board)
-    edges = np.concatenate([board[0, :], board[size - 1, :], board[:, 0], board[:, size - 1]])
-    board -= min(edges)
-    return board
-
-
-def board_hash(board):
+def hash_board(board):
     size = len(board)
     board_str = ""
     for r in range(size):
@@ -34,22 +27,6 @@ def board_hash_to_array(board_hash_str, size):
         board[int(r), int(c)] = int(float(v))
 
     return board
-
-
-def check_board_is_new_combo(board, results):
-    zeroed_board = zero_board(board.copy())
-    rot_boards = [zeroed_board]
-    rot_board_hashes = [board_hash(zeroed_board)]
-    for _ in range(3):
-        rot_board = np.rot90(rot_boards[-1])
-        rot_boards.append(rot_board)
-        rot_board_hashes.append(board_hash(rot_board))
-
-    for rot_board_hash in rot_board_hashes:
-        if rot_board_hash in results:
-            return False
-
-    return True
 
 
 def split_list(list_, n):
@@ -86,7 +63,7 @@ def get_file_item_count(files, folder_name):
     return count
 
 
-def display_round_stats(round_, rounds, start, round_start, now, new_board_count, result_count):
+def display_round_stats(round_, rounds, start, round_start, new_board_count, result_count):
     now = time.time()
 
     round_seconds_elapsed = round(now - round_start, 1)
