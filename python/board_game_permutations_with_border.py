@@ -140,7 +140,7 @@ def generate_boards_mp(split_increments):
 if __name__ in "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
-        description="Calculate Board Game Permutations - With Boarder",
+        description="Calculate Board Game Permutations - With Border",
     )
     parser.add_argument(
         "-s",
