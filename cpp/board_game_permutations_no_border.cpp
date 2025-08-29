@@ -2,47 +2,37 @@
 
 Board zero_board(const Board &board) {
   int size = board.size();
-  int min_edge = std::numeric_limits<int>::max();
+  int min_square = std::numeric_limits<int>::max();
 
-  // find min of all edge values (top, bottom, left, right)
-  for (size_t i = 0; i < size; ++i) {
-    min_edge = std::min(min_edge, board[0][i]);
-    min_edge = std::min(min_edge, board[size - 1][i]);
-    if (i > 0 && i < size - 1) {
-      min_edge = std::min(min_edge, board[i][0]);
-      min_edge = std::min(min_edge, board[i][size - 1]);
+  for (int r = 0; r < size; ++r) {
+    for (int c = 0; c < size; ++c) {
+      min_square = std::min(min_square, board[r][c]);
     }
   }
 
-  // create a new board with values subtracted
   Board zeroed_board(board);
-  for (size_t i = 0; i < size; ++i) {
-    for (size_t j = 0; j < size; ++j) {
-      zeroed_board[i][j] -= min_edge;
+  for (int r = 0; r < size; ++r) {
+    for (int c = 0; c < size; ++c) {
+      zeroed_board[r][c] -= min_square;
     }
   }
 
   return zeroed_board;
 }
 
-Board drop_board(Board board) {
+Board find_most_extreme_board(Board board) {
   int size = (int)board.size();
-  int rings = size / 2 + (size % 2 != 0);
-  for (size_t i = 0; i < rings; ++i) {
-    int val = -2 * (i + 1);
-    for (size_t c = i; c < size - i; ++c) {
-      board[i][c] = val;
-      board[size - i - 1][c] = val;
-    }
-    for (size_t r = i; r < size - i; ++r) {
-      board[r][i] = val;
-      board[r][size - i - 1] = val;
+  for (int r = 0; r < size; ++r) {
+    for (int c = 0; c < size; ++c) {
+      board[r][c] += (r + c) * 2;
     }
   }
+
   return board;
 }
 
-std::optional<Board> increment_board(Board board) {
+std::optional<Board> increment_board(Board board, const int &board_min,
+                                     const int &board_max) {
   int size = board.size();
 
   for (int r = 0; r < size; ++r) {
@@ -56,11 +46,12 @@ std::optional<Board> increment_board(Board board) {
           std::abs(board[r][std::min(size - 1, c + 1)] - board[r][c]) <= 2;
 
       bool boundary_valid = true;
-      for (size_t i = 0; i < size; ++i) {
-        if (board[0][i] > 2 || board[size - 1][i] > 2 || board[i][0] > 2 ||
-            board[i][size - 1] > 2) {
-          boundary_valid = false;
-          break;
+      for (int r = 0; r < size; ++r) {
+        for (int c = 0; c < size; ++c) {
+          if (board[r][c] < board_min || board[r][c] > board_max) {
+            boundary_valid = false;
+            break;
+          }
         }
       }
 
@@ -75,12 +66,13 @@ std::optional<Board> increment_board(Board board) {
   return std::nullopt;
 }
 
-int calculate_rounds(const Board &dropped_board, bool print_boards = false) {
-  Board board = dropped_board;
+int calculate_rounds(const Board &most_extreme_board, const int &board_min,
+                     const int &board_max, bool print_boards = false) {
+  Board board = most_extreme_board;
   int rounds = 0;
 
   while (true) {
-    std::optional<Board> result = increment_board(board);
+    std::optional<Board> result = increment_board(board, board_min, board_max);
 
     ++rounds;
 
@@ -120,7 +112,8 @@ bool check_board_is_new_combo(Board board,
 }
 
 std::unordered_map<std::string, Board>
-generate_all_board_increments(Board input_board) {
+generate_all_board_increments(Board input_board, const int &board_min,
+                              const int &board_max) {
   int size = input_board.size();
   std::unordered_set<std::string> board_hashes;
   std::unordered_map<std::string, Board> board_increments;
@@ -140,11 +133,12 @@ generate_all_board_increments(Board input_board) {
           std::abs(board[r][std::min(size - 1, c + 1)] - val) <= 2;
 
       bool boundary_valid = true;
-      for (size_t i = 0; i < size; ++i) {
-        if (board[0][i] > 2 || board[size - 1][i] > 2 || board[i][0] > 2 ||
-            board[i][size - 1] > 2) {
-          boundary_valid = false;
-          break;
+      for (int r = 0; r < size; ++r) {
+        for (int c = 0; c < size; ++c) {
+          if (board[r][c] < board_min || board[r][c] > board_max) {
+            boundary_valid = false;
+            break;
+          }
         }
       }
 
@@ -164,7 +158,8 @@ generate_all_board_increments(Board input_board) {
 }
 
 std::vector<std::pair<Board, std::vector<std::string>>>
-generate_boards_mp(const std::vector<Board> &split_increments) {
+generate_boards_mp(const std::vector<Board> &split_increments,
+                   const int &board_min, const int &board_max) {
   std::vector<std::pair<Board, std::vector<std::string>>> new_boards;
   int size = split_increments[0].size();
   new_boards.reserve(split_increments.size() * size * size);
@@ -172,7 +167,7 @@ generate_boards_mp(const std::vector<Board> &split_increments) {
   std::vector<std::string> hashes(4);
   for (const Board &board : split_increments) {
     std::unordered_map<std::string, Board> increments =
-        generate_all_board_increments(board);
+        generate_all_board_increments(board, board_min, board_max);
 
     for (const std::pair<const std::string, Board> &entry : increments) {
       const Board &board_increment = entry.second;
@@ -208,14 +203,23 @@ int main(int argc, char *argv[]) {
   fs::create_directory("results");
 
   Board initial_board = generate_initial_board(size);
-  Board dropped_board = drop_board(initial_board);
-  int rounds = calculate_rounds(dropped_board, false);
+  Board most_extreme_board = find_most_extreme_board(initial_board);
+  int board_min = std::numeric_limits<int>::max();
+  int board_max = std::numeric_limits<int>::min();
+  for (int r = 0; r < size; ++r) {
+    for (int c = 0; c < size; ++c) {
+      board_min = std::min(board_min, most_extreme_board[r][c]);
+      board_max = std::max(board_max, most_extreme_board[r][c]);
+    }
+  }
+  int rounds =
+      calculate_rounds(most_extreme_board, board_min, board_max, false);
   std::cout << rounds << " rounds for a " << size << "x" << size << " board\n";
 
-  Board zeroed_board = zero_board(dropped_board);
+  Board zeroed_board = zero_board(initial_board);
   std::unordered_set<std::string> results = {hash_board(zeroed_board)};
   std::vector<std::string> result_files;
-  std::vector<Board> last_round_increments = {dropped_board};
+  std::vector<Board> last_round_increments = {zeroed_board};
   std::vector<Board> new_increments;
   std::vector<std::string> increment_files;
   std::vector<std::string> new_increment_files;
@@ -281,8 +285,8 @@ int main(int argc, char *argv[]) {
               std::vector<std::pair<Board, std::vector<std::string>>>>>
               futures;
           for (const std::vector<Board> &split : split_increments) {
-            futures.push_back(
-                std::async(std::launch::async, generate_boards_mp, split));
+            futures.push_back(std::async(std::launch::async, generate_boards_mp,
+                                         split, board_min, board_max));
           }
 
           // std::vector<std::pair<Board, std::vector<std::string>>>
@@ -358,7 +362,8 @@ int main(int argc, char *argv[]) {
       for (std::size_t i = 0; i < last_round_increments.size(); ++i) {
         Board last_round_new_increment = last_round_increments[i];
         std::unordered_map<std::string, Board> board_increments =
-            generate_all_board_increments(last_round_new_increment);
+            generate_all_board_increments(last_round_new_increment, board_min,
+                                          board_max);
 
         for (std::unordered_map<std::string, Board>::iterator it =
                  board_increments.begin();

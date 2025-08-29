@@ -184,14 +184,11 @@ if __name__ in "__main__":
     new_increment_files = []
 
     if n_jobs > 1:
-        filename = f"new_increments_{(time.time())}.txt"
-        with open(Path.cwd() / "new_increments" / filename, "w") as file:
-            file.write("\n".join(bg_utils.hash_board(increment) for increment in last_round_increments))
-
+        filename = bg_utils.write_to_file(last_round_increments, "new_increments")
         increment_files.append(filename)
 
-    CHUNK_SIZE = 5_000
-    MAX_IN_MEM = 10_000_000
+    CHUNK_SIZE = 500
+    MAX_IN_MEM = 1_000
 
     start = time.time()
 
@@ -224,26 +221,17 @@ if __name__ in "__main__":
 
                     # dump excess results to txt file
                     if len(results) >= MAX_IN_MEM:
-                        filename = f"results_{int(time.time() * 1e3)}.txt"
-                        with open(Path.cwd() / "results" / filename, "w") as file:
-                            file.write("\n".join(results))
-
+                        filename = bg_utils.write_to_file(results, "results")
                         results = set()
                         result_files.append(filename)
 
                     # dump excess new increments to txt file
                     if len(new_increments) >= MAX_IN_MEM:
-                        filename = f"new_increments_{int(time.time() * 1e3)}.txt"
-                        with open(Path.cwd() / "new_increments" / filename, "w") as file:
-                            file.write("\n".join(bg_utils.hash_board(increment) for increment in new_increments))
-
+                        filename = bg_utils.write_to_file(new_increments, "new_increments")
                         new_increments = []
                         new_increment_files.append(filename)
 
-            filename = f"new_increments_{int(time.time() * 1e3)}.txt"
-            with open(Path.cwd() / "new_increments" / filename, "w") as file:
-                file.write("\n".join(bg_utils.hash_board(increment) for increment in new_increments))
-
+            filename = bg_utils.write_to_file(new_increments, "new_increments")
             new_increments = []
             new_increment_files.append(filename)
 

@@ -14,7 +14,8 @@ def hash_board(board):
     board_str = ""
     for r in range(size):
         for c in range(size):
-            board_str += f"{r},{c},{board[r, c]}|"
+            # board_str += f"{r},{c},{board[r, c]}|"
+            board_str += f"{board[r, c]}|"
 
     return board_str
 
@@ -22,9 +23,11 @@ def hash_board(board):
 def board_hash_to_array(board_hash_str, size):
     board = np.zeros((size, size))
     squares = board_hash_str[:-1].split("|")
-    for square in squares:
-        r, c, v = square.split(",")
-        board[int(r), int(c)] = int(float(v))
+    for i, square in enumerate(squares):
+        # r, c, v = square.split(",")
+        r = i / size
+        c = i % size
+        board[int(r), int(c)] = int(float(square))
 
     return board
 
@@ -38,6 +41,19 @@ def split_list(list_, n):
     return splits
 
 
+def write_to_file(items, folder_name):
+    filename = f"{folder_name}_{int(time.time() * 1e3)}.txt"
+    with open(Path.cwd() / folder_name / filename, "w") as file:
+        if folder_name == "results":
+            file.write("\n".join(items))
+        elif folder_name == "new_increments":
+            file.write("\n".join(hash_board(item) for item in items))
+        else:
+            pass
+
+    return filename
+
+
 def check_results_vs_files(results_list, result_files):
     is_new_check = [True] * len(results_list)
     for filename in result_files:
@@ -47,7 +63,7 @@ def check_results_vs_files(results_list, result_files):
         temp_results = set(temp_results)
 
         for i, (board_increment, rotated_hashes) in enumerate(results_list):
-            if any(h in temp_results for h in rotated_hashes):
+            if is_new_check[i] and any(h in temp_results for h in rotated_hashes):
                 is_new_check[i] = False
 
     return is_new_check
