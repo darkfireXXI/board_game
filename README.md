@@ -138,7 +138,7 @@ sum(Mt. Everest board) - sum(Mariana Trench Board) = 880 total rounds of moves f
 </pre>
 
 And for each final board result we can increment it 100 ways.
-Yeah, so that's not going to be solved anytime soon on a laptop. You can solve the 2x2 example on a laptop, 3x3 refactored with almost a decade later I was also able to now compute on a laptop instead of AWS. 4x4 and higher I'm currently computing on a desktop with yet another refactor from python to c++.
+Yeah, so that's not going to be solved anytime soon on a laptop. You can solve the 2x2 example on a laptop, 3x3 refactored almost a decade later I was also able to now compute on a laptop instead of AWS. 4x4 and higher I'm currently computing on a desktop with yet another refactor from python to c++.
 
 ### 2x2 Permutation Tree
 
