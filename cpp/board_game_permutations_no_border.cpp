@@ -321,7 +321,7 @@ int main(int argc, char *argv[]) {
 
             const auto &[board_increment, rotated_hashes] = results_list[i];
             bool is_duplicate = false;
-            for (const auto &h : rotated_hashes) {
+            for (const std::string &h : rotated_hashes) {
               if (results.find(h) != results.end()) {
                 is_duplicate = true;
                 break;
