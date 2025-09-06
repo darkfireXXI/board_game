@@ -236,8 +236,8 @@ int main(int argc, char *argv[]) {
     increment_files.push_back(filename);
   }
 
-  int CHUNK_SIZE = 5'000;
-  int MAX_IN_MEM = 10'000'000;
+  int CHUNK_SIZE = 10'000;
+  int MAX_IN_MEM = 20'000'000;
 
   long long start = get_current_time_ms();
 
@@ -332,8 +332,21 @@ int main(int argc, char *argv[]) {
 
           // dump excess results to txt file
           if (results.size() >= MAX_IN_MEM) {
-            std::string filename = write_to_file(results, "results");
-            results.clear();
+            std::unordered_set<std::string> items_to_write;
+            std::unordered_set<std::string>::iterator it = results.begin();
+            size_t j = 0;
+            while (j < MAX_IN_MEM && it != results.end()) {
+                items_to_write.insert(*it);
+                ++j;
+                ++it;
+            }
+
+            std::string filename = write_to_file(items_to_write, "results");
+            
+            for (const std::string& item : items_to_write) {
+              results.erase(item);
+            }
+
             result_files.push_back(filename);
           }
 

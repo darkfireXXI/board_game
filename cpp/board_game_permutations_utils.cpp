@@ -178,7 +178,7 @@ long long get_file_item_count(std::vector<std::string> files,
     }
   } else if (folder_name == "results") {
     long long count_per_file = 0;
-    if (files.size() > 1) {
+    if (files.size() > 0) {
       std::filesystem::path file_path =
           std::filesystem::current_path() / folder_name / files[0];
       std::ifstream file(file_path);

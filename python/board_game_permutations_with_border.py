@@ -221,8 +221,9 @@ if __name__ in "__main__":
 
                     # dump excess results to txt file
                     if len(results) >= MAX_IN_MEM:
-                        filename = bg_utils.write_to_file(results, "results")
-                        results = set()
+                        results = list(results)
+                        filename = bg_utils.write_to_file(results[:MAX_IN_MEM], "results")
+                        results = set(results[MAX_IN_MEM:])
                         result_files.append(filename)
 
                     # dump excess new increments to txt file

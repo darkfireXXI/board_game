@@ -78,9 +78,11 @@ def get_file_item_count(files, folder_name):
             count += len(temp)
 
     elif folder_name == "results":
-        with open(Path.cwd() / folder_name / files[0], "r") as file:
-            temp = file.read().splitlines()
-        count_per_file = len(temp)
+        count_per_file = 0
+        if files:
+            with open(Path.cwd() / folder_name / files[0], "r") as file:
+                temp = file.read().splitlines()
+            count_per_file += len(temp)
         count = len(files) * count_per_file
 
     return count
