@@ -65,18 +65,7 @@ Board board_hash_to_array(const std::string &board_hash_str, int size) {
 
   while (std::getline(ss, token, '|')) {
     flat_values.push_back(std::stoi(token));
-    // } catch (const std::invalid_argument &e) {
-    //   throw std::runtime_error("Invalid number in board hash: " + token);
-    // }
   }
-
-  // if (flat_values.size() != size * size) {
-  //   throw std::runtime_error(
-  //       "Hash does not contain the right number of values for the board
-  //       size.");
-  // }
-
-  // populate 2D board
 
   Board board(size, std::vector<int>(size));
   for (int i = 0; i < size * size; ++i) {
@@ -174,17 +163,30 @@ long long get_file_item_count(std::vector<std::string> files,
                               std::string folder_name) {
   long long count = 0;
 
-  for (size_t i = 0; i < files.size(); ++i) {
+  if (folder_name == "new_increments") {
+    for (size_t i = 0; i < files.size(); ++i) {
+      std::filesystem::path file_path =
+          std::filesystem::current_path() / folder_name / files[i];
+      std::ifstream file(file_path);
+
+      std::string line;
+      while (std::getline(file, line)) {
+        ++count;
+      }
+
+      file.close();
+    }
+  } else if (folder_name == "results") {
+    long long count_per_file = 0;
     std::filesystem::path file_path =
-        std::filesystem::current_path() / folder_name / files[i];
+        std::filesystem::current_path() / folder_name / files[0];
     std::ifstream file(file_path);
 
     std::string line;
     while (std::getline(file, line)) {
-      ++count;
+      ++count_per_file;
     }
-
-    file.close();
+    long long count = files.size() * count_per_file;
   }
 
   return count;
