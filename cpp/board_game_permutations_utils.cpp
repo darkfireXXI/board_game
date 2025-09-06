@@ -178,15 +178,17 @@ long long get_file_item_count(std::vector<std::string> files,
     }
   } else if (folder_name == "results") {
     long long count_per_file = 0;
-    std::filesystem::path file_path =
-        std::filesystem::current_path() / folder_name / files[0];
-    std::ifstream file(file_path);
+    if (files.size() > 1) {
+      std::filesystem::path file_path =
+          std::filesystem::current_path() / folder_name / files[0];
+      std::ifstream file(file_path);
 
-    std::string line;
-    while (std::getline(file, line)) {
-      ++count_per_file;
+      std::string line;
+      while (std::getline(file, line)) {
+        ++count_per_file;
+      }
     }
-    long long count = files.size() * count_per_file;
+    count = files.size() * count_per_file;
   }
 
   return count;
