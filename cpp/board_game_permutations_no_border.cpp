@@ -340,14 +340,14 @@ int main(int argc, char *argv[]) {
             std::unordered_set<std::string>::iterator it = results.begin();
             size_t j = 0;
             while (j < MAX_IN_MEM && it != results.end()) {
-                items_to_write.insert(*it);
-                ++j;
-                ++it;
+              items_to_write.insert(*it);
+              ++j;
+              ++it;
             }
 
             std::string filename = write_to_file(items_to_write, "results");
-            
-            for (const std::string& item : items_to_write) {
+
+            for (const std::string &item : items_to_write) {
               results.erase(item);
             }
 

@@ -128,8 +128,8 @@ std::string write_to_file(const std::vector<Board> &new_increments,
 }
 
 std::vector<bool> check_results_vs_files(
-    const std::vector<std::pair<Board, std::vector<std::string>>> &results_list,
-    const std::vector<std::string> &result_files) {
+    const std::vector<std::pair<Board, std::string>> &results_list,
+    const std::vector<std::string> &result_files, const long long &max_in_mem) {
   std::vector<bool> is_new_check(results_list.size(), true);
 
   for (const std::string &filename : result_files) {
@@ -137,7 +137,7 @@ std::vector<bool> check_results_vs_files(
     std::ifstream file(filepath);
 
     std::unordered_set<std::string> temp_results;
-    temp_results.reserve(10'000'000);
+    temp_results.reserve(max_in_mem);
     std::string line;
     while (std::getline(file, line)) {
       temp_results.insert(line);
@@ -147,12 +147,12 @@ std::vector<bool> check_results_vs_files(
       if (!is_new_check[i])
         continue;
 
-      const std::vector<std::string> &rotated_hashes = results_list[i].second;
-      for (const std::string &h : rotated_hashes) {
-        if (temp_results.count(h) > 0) {
-          is_new_check[i] = false;
-        }
+      const std::string &min_board_hash = results_list[i].second;
+      // for (const std::string &h : rotated_hashes) {
+      if (temp_results.count(min_board_hash) > 0) {
+        is_new_check[i] = false;
       }
+      // }
     }
   }
 

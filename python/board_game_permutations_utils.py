@@ -1,5 +1,6 @@
 import time
 from pathlib import Path
+from multiprocessing import shared_memory
 
 import numpy as np
 
@@ -62,9 +63,27 @@ def check_results_vs_files(results_list, result_files):
 
         temp_results = set(temp_results)
 
-        for i, (board_increment, rotated_hashes) in enumerate(results_list):
-            if is_new_check[i] and any(h in temp_results for h in rotated_hashes):
+        for i, (board_increment, min_board_hash) in enumerate(results_list):
+            if is_new_check[i] and min_board_hash in temp_results:
                 is_new_check[i] = False
+
+    return is_new_check
+
+
+def check_results_vs_file_mp(results_list, is_new_check, shm_name, shape, dtype):
+    # is_new_check = [True] * len(results_list)
+    # for filename in result_files:
+    #     with open(Path.cwd() / "results" / filename, "r") as file:
+    #         temp_results = file.read().splitlines()
+
+    #     temp_results = set(temp_results)
+
+    shm = shared_memory.SharedMemory(name=shm_name)
+    temp_results = np.ndarray(shape, dtype=dtype, buffer=shm.buf)
+
+    for i, (board_increment, min_board_hash) in enumerate(results_list):
+        if is_new_check[i] and min_board_hash in temp_results:
+            is_new_check[i] = False
 
     return is_new_check
 

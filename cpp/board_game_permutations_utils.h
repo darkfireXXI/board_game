@@ -37,8 +37,8 @@ std::string write_to_file(const std::vector<Board> &new_increments,
                           const std::string &folder_name);
 
 std::vector<bool> check_results_vs_files(
-    const std::vector<std::pair<Board, std::vector<std::string>>> &results_list,
-    const std::vector<std::string> &result_files);
+    const std::vector<std::pair<Board, std::string>> &results_list,
+    const std::vector<std::string> &result_files, const long long &max_in_mem);
 
 long long get_file_item_count(std::vector<std::string> files,
                               std::string folder_name);

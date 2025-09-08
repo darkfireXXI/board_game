@@ -1,6 +1,7 @@
 import argparse
 import itertools
 import multiprocessing as mp
+from multiprocessing import shared_memory
 import time
 from pathlib import Path
 
@@ -96,9 +97,9 @@ def generate_all_board_increments(board):
                 and np.all(board[:, 0] <= 2)
                 and np.all(board[:, size - 1] <= 2)
             ):
-                is_new_combo = check_board_is_new_combo(board, set(board_increments.keys()))
+                is_new_combo, min_board_hash = check_board_is_new_combo(board, set(board_increments.keys()))
                 if is_new_combo:
-                    board_increments[bg_utils.hash_board(zero_board(board.copy()))] = board.copy()
+                    board_increments[min_board_hash] = board.copy()
 
             board[r, c] -= 1
 
@@ -114,11 +115,11 @@ def check_board_is_new_combo(board, results):
         rot_boards[i] = rot_board
         rot_board_hashes[i] = bg_utils.hash_board(rot_board)
 
-    for rot_board_hash in rot_board_hashes:
-        if rot_board_hash in results:
-            return False
+    min_board_hash = min(rot_board_hashes)
+    if min_board_hash in results:
+        return False, None
 
-    return True
+    return True, min_board_hash
 
 
 def generate_boards_mp(split_increments):
@@ -133,7 +134,7 @@ def generate_boards_mp(split_increments):
                 rotated = np.rot90(rotations[-1])
                 rotations.append(rotated)
                 hashes.add(bg_utils.hash_board(rotated))
-            new_boards.append((board_increment.copy(), hashes))
+            new_boards.append((board_increment.copy(), min(hashes)))
     return new_boards
 
 
@@ -188,7 +189,7 @@ if __name__ in "__main__":
         increment_files.append(filename)
 
     CHUNK_SIZE = 500
-    MAX_IN_MEM = 1_000
+    MAX_IN_MEM = 10_000
 
     start = time.time()
 
@@ -209,22 +210,39 @@ if __name__ in "__main__":
                     with mp.Pool(processes=n_jobs) as pool:
                         results_lists = pool.map(generate_boards_mp, split_increments)
 
-                    results_list = list(itertools.chain.from_iterable(results_lists))
+                    is_new_checks = [[True] * len(l) for l in results_lists]
 
-                    is_new_check = bg_utils.check_results_vs_files(results_list, result_files)
+                    for result_file in result_files:
+                        with open(Path.cwd() / "results" / result_file, "r") as file:
+                            temp_results = np.array(file.read().splitlines())
+
+                        shm = shared_memory.SharedMemory(create=True, size=temp_results.nbytes)
+                        shm_array = np.ndarray(temp_results.shape, dtype=temp_results.dtype, buffer=shm.buf)
+                        np.copyto(shm_array, temp_results)
+
+                        pool_args = [(r, isc, shm.name, temp_results.shape, temp_results.dtype) for r, isc in zip(results_lists, is_new_checks)]
+                        with mp.Pool(processes=n_jobs) as pool:
+                            is_new_checks = pool.starmap(bg_utils.check_results_vs_file_mp, pool_args)
+
+                        shm.close()
+                        shm.unlink()
+
+                    results_list = list(itertools.chain.from_iterable(results_lists))
+                    is_new_check = list(itertools.chain.from_iterable(is_new_checks))
 
                     results_list = [r for check, r in zip(is_new_check, results_list) if check]
-                    for board_increment, rotated_hashes in results_list:
-                        if not any(h in results for h in rotated_hashes):
-                            results.add(next(iter(rotated_hashes)))
+                    for board_increment, min_board_hash in results_list:
+                        if min_board_hash not in results:
+                            results.add(min_board_hash)
                             new_increments.append(board_increment)
 
                     # dump excess results to txt file
-                    if len(results) >= MAX_IN_MEM:
+                    while len(results) >= MAX_IN_MEM:
                         results = list(results)
                         filename = bg_utils.write_to_file(results[:MAX_IN_MEM], "results")
                         results = set(results[MAX_IN_MEM:])
                         result_files.append(filename)
+                        time.sleep(0.1)
 
                     # dump excess new increments to txt file
                     if len(new_increments) >= MAX_IN_MEM:
@@ -243,10 +261,9 @@ if __name__ in "__main__":
             for last_round_new_increment in tqdm(last_round_increments, leave=False):
                 board_increments = generate_all_board_increments(last_round_new_increment)
                 for board_increment in board_increments.values():
-                    is_new_combo = check_board_is_new_combo(board_increment, results)
+                    is_new_combo, min_board_hash = check_board_is_new_combo(board_increment, results)
                     if is_new_combo:
-                        zeroed_board = zero_board(board_increment.copy())
-                        results.add(bg_utils.hash_board(zeroed_board))
+                        results.add(min_board_hash)
                         new_increments.append(board_increment.copy())
 
         new_board_count = bg_utils.get_file_item_count(increment_files, "new_increments") + len(new_increments)

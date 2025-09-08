@@ -98,8 +98,9 @@ int calculate_rounds(const Board &dropped_board, bool print_boards = false) {
   return rounds;
 }
 
-bool check_board_is_new_combo(Board board,
-                              const std::unordered_set<std::string> &results) {
+std::tuple<bool, std::string>
+check_board_is_new_combo(Board board,
+                         const std::unordered_set<std::string> &results) {
   Board rotation = zero_board(board);
 
   std::vector<std::string> hashes(4);
@@ -110,13 +111,12 @@ bool check_board_is_new_combo(Board board,
     hashes[i] = hash_board(rotation);
   }
 
-  for (std::string h : hashes) {
-    if (results.count(h) > 0) {
-      return false;
-    }
+  std::sort(hashes.begin(), hashes.end());
+  if (results.count(hashes[0]) > 0) {
+    return {false, ""};
   }
 
-  return true;
+  return {true, hashes[0]};
 }
 
 std::unordered_map<std::string, Board>
@@ -149,10 +149,11 @@ generate_all_board_increments(Board input_board) {
       }
 
       if (local_valid && boundary_valid) {
-        if (check_board_is_new_combo(board, board_hashes)) {
-          std::string board_hash = hash_board(zero_board(board));
-          board_hashes.insert(board_hash);
-          board_increments[board_hash] = board;
+        auto [is_new_combo, min_board_hash] =
+            check_board_is_new_combo(board, board_hashes);
+        if (is_new_combo) {
+          board_hashes.insert(min_board_hash);
+          board_increments[min_board_hash] = board;
         }
       }
 
@@ -163,9 +164,9 @@ generate_all_board_increments(Board input_board) {
   return board_increments;
 }
 
-std::vector<std::pair<Board, std::vector<std::string>>>
+std::vector<std::pair<Board, std::string>>
 generate_boards_mp(const std::vector<Board> &split_increments) {
-  std::vector<std::pair<Board, std::vector<std::string>>> new_boards;
+  std::vector<std::pair<Board, std::string>> new_boards;
   int size = split_increments[0].size();
   new_boards.reserve(split_increments.size() * size * size);
 
@@ -185,7 +186,9 @@ generate_boards_mp(const std::vector<Board> &split_increments) {
         hashes[i] = hash_board(rotation);
       }
 
-      new_boards.emplace_back(board_increment, hashes);
+    std:
+      sort(hashes.begin(), hashes.end());
+      new_boards.emplace_back(board_increment, hashes[0]);
     }
   }
 
@@ -277,8 +280,7 @@ int main(int argc, char *argv[]) {
           std::vector<std::vector<Board>> split_increments =
               split_list(chunk, n_jobs);
 
-          std::vector<std::future<
-              std::vector<std::pair<Board, std::vector<std::string>>>>>
+          std::vector<std::future<std::vector<std::pair<Board, std::string>>>>
               futures;
           for (const std::vector<Board> &split : split_increments) {
             futures.push_back(
@@ -295,37 +297,33 @@ int main(int argc, char *argv[]) {
           //                       result_chunk.end());
           // }
 
-          std::vector<std::pair<Board, std::vector<std::string>>> results_list;
+          std::vector<std::pair<Board, std::string>> results_list;
           results_list.reserve(CHUNK_SIZE * n_jobs);
 
-          for (std::future<
-                   std::vector<std::pair<Board, std::vector<std::string>>>>
-                   &future : futures) {
-            std::vector<std::pair<Board, std::vector<std::string>>> chunk =
-                future.get();
+          for (std::future<std::vector<std::pair<Board, std::string>>> &future :
+               futures) {
+            std::vector<std::pair<Board, std::string>> chunk = future.get();
             results_list.insert(results_list.end(),
                                 std::make_move_iterator(chunk.begin()),
                                 std::make_move_iterator(chunk.end()));
           }
 
           std::vector<bool> is_new_check =
-              check_results_vs_files(results_list, result_files);
+              check_results_vs_files(results_list, result_files, MAX_IN_MEM);
 
           for (size_t i = 0; i < results_list.size(); ++i) {
             if (!is_new_check[i])
               continue;
 
-            const auto &[board_increment, rotated_hashes] = results_list[i];
+            const auto &[board_increment, min_board_hash] = results_list[i];
             bool is_duplicate = false;
-            for (const std::string &h : rotated_hashes) {
-              if (results.find(h) != results.end()) {
-                is_duplicate = true;
-                break;
-              }
+            if (results.find(min_board_hash) != results.end()) {
+              is_duplicate = true;
+              break;
             }
 
             if (!is_duplicate) {
-              results.insert(rotated_hashes[0]);
+              results.insert(min_board_hash);
               new_increments.push_back(board_increment);
             }
           }
@@ -336,14 +334,14 @@ int main(int argc, char *argv[]) {
             std::unordered_set<std::string>::iterator it = results.begin();
             size_t j = 0;
             while (j < MAX_IN_MEM && it != results.end()) {
-                items_to_write.insert(*it);
-                ++j;
-                ++it;
+              items_to_write.insert(*it);
+              ++j;
+              ++it;
             }
 
             std::string filename = write_to_file(items_to_write, "results");
-            
-            for (const std::string& item : items_to_write) {
+
+            for (const std::string &item : items_to_write) {
               results.erase(item);
             }
 
@@ -377,12 +375,11 @@ int main(int argc, char *argv[]) {
                  board_increments.begin();
              it != board_increments.end(); ++it) {
           Board board_increment = it->second;
-          bool is_new_combo =
+          auto [is_new_combo, min_board_hash] =
               check_board_is_new_combo(board_increment, results);
 
           if (is_new_combo) {
-            Board zeroed_board = zero_board(board_increment);
-            results.insert(hash_board(zeroed_board));
+            results.insert(min_board_hash);
             new_increments.push_back(board_increment);
           }
         }

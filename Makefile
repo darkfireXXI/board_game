@@ -25,10 +25,10 @@ cppformat:
 	@clang-format -i cpp/board_game_permutations_utils.h
 
 compile:
-# 	@g++ -O3 -march=native -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_with_border.cpp -o cpp/board_game_permutations_with_border
+	@g++ -O3 -march=native -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_with_border.cpp -o cpp/board_game_permutations_with_border
 # 	@g++ -O3 -march=native -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_no_border.cpp -o cpp/board_game_permutations_no_border
-	@clang++ -O3 -march=native -stdlib=libc++ -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_with_border.cpp -o cpp/board_game_permutations_with_border
-	@clang++ -O3 -march=native -stdlib=libc++ -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_no_border.cpp -o cpp/board_game_permutations_no_border
+# 	@clang++ -O3 -march=native -stdlib=libc++ -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_with_border.cpp -o cpp/board_game_permutations_with_border
+# 	@clang++ -O3 -march=native -stdlib=libc++ -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_no_border.cpp -o cpp/board_game_permutations_no_border
 
 run:
 	@./cpp/board_game_permutations_with_border -s 3 -n 1

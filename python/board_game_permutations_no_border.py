@@ -79,9 +79,9 @@ def generate_all_board_increments(board, board_min, board_max):
                 and np.all(board >= board_min)
                 and np.all(board <= board_max)
             ):
-                is_new_combo = check_board_is_new_combo(board, set(board_increments.keys()))
+                is_new_combo, min_board_hash = check_board_is_new_combo(board, set(board_increments.keys()))
                 if is_new_combo:
-                    board_increments[bg_utils.hash_board(zero_board(board.copy()))] = board.copy()
+                    board_increments[min_board_hash] = board.copy()
 
             board[r, c] -= 1
 
@@ -97,11 +97,11 @@ def check_board_is_new_combo(board, results):
         rot_boards.append(rot_board)
         rot_board_hashes.append(bg_utils.hash_board(rot_board))
 
-    for rot_board_hash in rot_board_hashes:
-        if rot_board_hash in results:
-            return False
+    min_board_hash = min(rot_board_hashes)
+    if min_board_hash in results:
+        return False, None
 
-    return True
+    return True, min_board_hash
 
 
 def generate_boards_mp(split_increments, board_min, board_max):
@@ -116,7 +116,7 @@ def generate_boards_mp(split_increments, board_min, board_max):
                 rotated = np.rot90(rotations[-1])
                 rotations.append(rotated)
                 hashes.add(bg_utils.hash_board(rotated))
-            new_boards.append((board_increment.copy(), hashes))
+            new_boards.append((board_increment.copy(), min(hashes)))
 
     return new_boards
 
@@ -172,8 +172,8 @@ if __name__ in "__main__":
 
         increment_files.append(filename)
 
-    CHUNK_SIZE = 5_000
-    MAX_IN_MEM = 10_000_000
+    CHUNK_SIZE = 500
+    MAX_IN_MEM = 1_000
 
     start = time.time()
 
@@ -185,7 +185,7 @@ if __name__ in "__main__":
                 with open(Path.cwd() / "new_increments" / filename, "r") as file:
                     increments = file.read().splitlines()
 
-                increments = [bg_utils.hash_board_to_array(increment, size) for increment in increments]
+                increments = [bg_utils.board_hash_to_array(increment, size) for increment in increments]
 
                 for i in tqdm(range(0, len(increments), CHUNK_SIZE * n_jobs), leave=False):
                     split_increments = bg_utils.split_list(
@@ -201,17 +201,18 @@ if __name__ in "__main__":
                     is_new_check = bg_utils.check_results_vs_files(results_list, result_files)
 
                     results_list = [r for check, r in zip(is_new_check, results_list) if check]
-                    for board_increment, rotated_hashes in results_list:
-                        if not any(h in results for h in rotated_hashes):
-                            results.add(next(iter(rotated_hashes)))
+                    for board_increment, min_board_hash in results_list:
+                        if min_board_hash not in results:
+                            results.add(min_board_hash)
                             new_increments.append(board_increment)
 
                     # dump excess results to txt file
-                    if len(results) >= MAX_IN_MEM:
+                    while len(results) >= MAX_IN_MEM:
                         results = list(results)
                         filename = bg_utils.write_to_file(results[:MAX_IN_MEM], "results")
                         results = set(results[MAX_IN_MEM:])
                         result_files.append(filename)
+                        time.sleep(0.1)
 
                     # dump excess new increments to txt file
                     if len(new_increments) >= MAX_IN_MEM:
@@ -230,10 +231,9 @@ if __name__ in "__main__":
             for last_round_new_increment in tqdm(last_round_increments, leave=False):
                 board_increments = generate_all_board_increments(last_round_new_increment, board_min, board_max)
                 for board_increment in board_increments.values():
-                    is_new_combo = check_board_is_new_combo(board_increment, results)
+                    is_new_combo, min_board_hash = check_board_is_new_combo(board_increment, results)
                     if is_new_combo:
-                        zeroed_board = zero_board(board_increment.copy())
-                        results.add(bg_utils.hash_board(zeroed_board))
+                        results.add(min_board_hash)
                         new_increments.append(board_increment.copy())
 
         new_board_count = bg_utils.get_file_item_count(increment_files, "new_increments") + len(new_increments)
