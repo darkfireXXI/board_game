@@ -40,6 +40,11 @@ std::vector<bool> check_results_vs_files(
     const std::vector<std::pair<Board, std::string>> &results_list,
     const std::vector<std::string> &result_files, const long long &max_in_mem);
 
+std::vector<bool> check_results_vs_file_mp(
+    const std::vector<std::pair<Board, std::string>> &results_list,
+    std::vector<bool> is_new_check,
+    const std::unordered_set<std::string> &temp_results);
+
 long long get_file_item_count(std::vector<std::string> files,
                               std::string folder_name);
 

@@ -1,3 +1,6 @@
+#include <chrono>
+#include <thread>
+
 #include "board_game_permutations_utils.h"
 
 Board zero_board(const Board &board) {
@@ -281,9 +284,9 @@ int main(int argc, char *argv[]) {
               split_list(chunk, n_jobs);
 
           std::vector<std::future<std::vector<std::pair<Board, std::string>>>>
-              futures;
+              calc_futures;
           for (const std::vector<Board> &split : split_increments) {
-            futures.push_back(
+            calc_futures.push_back(
                 std::async(std::launch::async, generate_boards_mp, split));
           }
 
@@ -297,39 +300,101 @@ int main(int argc, char *argv[]) {
           //                       result_chunk.end());
           // }
 
+          std::vector<std::vector<std::pair<Board, std::string>>> results_lists;
+          results_lists.reserve(n_jobs);
+          for (auto &calc_future : calc_futures) {
+            results_lists.push_back(calc_future.get());
+          }
+
+          std::vector<std::vector<bool>> is_new_checks;
+          is_new_checks.reserve(n_jobs);
+
+          for (const auto &result_chunk : results_lists) {
+            is_new_checks.emplace_back(result_chunk.size(), true);
+          }
+
+          // std::vector<std::pair<Board, std::string>> results_list;
+          // results_list.reserve(CHUNK_SIZE * n_jobs);
+
+          // for (std::future<std::vector<std::pair<Board, std::string>>>
+          // &calc_future :
+          //      calc_futures) {
+          //   std::vector<std::pair<Board, std::string>> chunk =
+          //   calc_future.get(); results_list.insert(results_list.end(),
+          //                       std::make_move_iterator(chunk.begin()),
+          //                       std::make_move_iterator(chunk.end()));
+          // }
+
+          for (const std::string &result_file : result_files) {
+            fs::path filepath = fs::current_path() / "results" / filename;
+            std::ifstream file(filepath);
+
+            std::unordered_set<std::string> temp_results;
+            temp_results.reserve(MAX_IN_MEM);
+            std::string line;
+            while (std::getline(file, line)) {
+              temp_results.insert(line);
+            }
+
+            std::vector<std::future<std::vector<bool>>> check_futures;
+            for (size_t nj = 0; nj < n_jobs; ++nj) {
+              check_futures.push_back(
+                  std::async(std::launch::async, check_results_vs_file_mp,
+                             std::cref(results_lists[nj]), is_new_checks[nj],
+                             std::cref(temp_results)));
+            }
+
+            for (int nj = 0; nj < n_jobs; ++nj) {
+              is_new_checks[nj] = check_futures[nj].get();
+            }
+          }
+
           std::vector<std::pair<Board, std::string>> results_list;
           results_list.reserve(CHUNK_SIZE * n_jobs);
 
-          for (std::future<std::vector<std::pair<Board, std::string>>> &future :
-               futures) {
-            std::vector<std::pair<Board, std::string>> chunk = future.get();
+          for (std::future<std::vector<std::pair<Board, std::string>>>
+                   &calc_future : calc_futures) {
+            std::vector<std::pair<Board, std::string>> chunk =
+                calc_future.get();
             results_list.insert(results_list.end(),
                                 std::make_move_iterator(chunk.begin()),
                                 std::make_move_iterator(chunk.end()));
           }
 
-          std::vector<bool> is_new_check =
-              check_results_vs_files(results_list, result_files, MAX_IN_MEM);
-
-          for (size_t i = 0; i < results_list.size(); ++i) {
-            if (!is_new_check[i])
-              continue;
-
-            const auto &[board_increment, min_board_hash] = results_list[i];
-            bool is_duplicate = false;
-            if (results.find(min_board_hash) != results.end()) {
-              is_duplicate = true;
-              break;
-            }
-
-            if (!is_duplicate) {
-              results.insert(min_board_hash);
-              new_increments.push_back(board_increment);
+          for (size_t chunk = 0; chunk < n_jobs; ++chunk) {
+            for (size_t j = 0; j < results_lists[i].size(); ++j) {
+              if (is_new_checks[chunk][j]) {
+                const auto &[board_increment, min_board_hash] =
+                    results_lists[chunk][j];
+                if (results.insert(min_board_hash).second) {
+                  new_increments.push_back(board_increment);
+                }
+              }
             }
           }
 
+          // std::vector<bool> is_new_check =
+          //     check_results_vs_files(results_list, result_files, MAX_IN_MEM);
+
+          // for (size_t i = 0; i < results_list.size(); ++i) {
+          //   if (!is_new_check[i])
+          //     continue;
+
+          //   const auto &[board_increment, min_board_hash] = results_list[i];
+          //   bool is_duplicate = false;
+          //   if (results.find(min_board_hash) != results.end()) {
+          //     is_duplicate = true;
+          //     break;
+          //   }
+
+          //   if (!is_duplicate) {
+          //     results.insert(min_board_hash);
+          //     new_increments.push_back(board_increment);
+          //   }
+          // }
+
           // dump excess results to txt file
-          if (results.size() >= MAX_IN_MEM) {
+          while (results.size() >= MAX_IN_MEM) {
             std::unordered_set<std::string> items_to_write;
             std::unordered_set<std::string>::iterator it = results.begin();
             size_t j = 0;
@@ -346,6 +411,8 @@ int main(int argc, char *argv[]) {
             }
 
             result_files.push_back(filename);
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
           }
 
           // dump excess new increments to txt file

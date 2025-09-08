@@ -212,7 +212,7 @@ if __name__ in "__main__":
                         filename = bg_utils.write_to_file(results[:MAX_IN_MEM], "results")
                         results = set(results[MAX_IN_MEM:])
                         result_files.append(filename)
-                        time.sleep(0.1)
+                        time.sleep(0.01)
 
                     # dump excess new increments to txt file
                     if len(new_increments) >= MAX_IN_MEM:

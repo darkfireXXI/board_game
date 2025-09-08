@@ -189,7 +189,7 @@ if __name__ in "__main__":
         increment_files.append(filename)
 
     CHUNK_SIZE = 500
-    MAX_IN_MEM = 10_000
+    MAX_IN_MEM = 1_000
 
     start = time.time()
 
@@ -227,14 +227,17 @@ if __name__ in "__main__":
                         shm.close()
                         shm.unlink()
 
-                    results_list = list(itertools.chain.from_iterable(results_lists))
-                    is_new_check = list(itertools.chain.from_iterable(is_new_checks))
+                    # results_list = list(itertools.chain.from_iterable(results_lists))
+                    # is_new_check = list(itertools.chain.from_iterable(is_new_checks))
 
-                    results_list = [r for check, r in zip(is_new_check, results_list) if check]
-                    for board_increment, min_board_hash in results_list:
-                        if min_board_hash not in results:
-                            results.add(min_board_hash)
-                            new_increments.append(board_increment)
+                    # results_list = [r for check, r in zip(is_new_check, results_list) if check]
+                    for nj in range(n_jobs):
+                        for j in range(results_lists[nj]):
+                            if is_new_checks[nj][j]:
+                                board_increment, min_board_hash = results_lists[nj][j]
+                                if min_board_hash not in results:
+                                    results.add(min_board_hash)
+                                    new_increments.append(board_increment)
 
                     # dump excess results to txt file
                     while len(results) >= MAX_IN_MEM:
@@ -242,7 +245,7 @@ if __name__ in "__main__":
                         filename = bg_utils.write_to_file(results[:MAX_IN_MEM], "results")
                         results = set(results[MAX_IN_MEM:])
                         result_files.append(filename)
-                        time.sleep(0.1)
+                        time.sleep(0.01)
 
                     # dump excess new increments to txt file
                     if len(new_increments) >= MAX_IN_MEM:

@@ -148,13 +148,42 @@ std::vector<bool> check_results_vs_files(
         continue;
 
       const std::string &min_board_hash = results_list[i].second;
-      // for (const std::string &h : rotated_hashes) {
       if (temp_results.count(min_board_hash) > 0) {
         is_new_check[i] = false;
       }
-      // }
     }
   }
+
+  return is_new_check;
+}
+
+std::vector<bool> check_results_vs_file_mp(
+    const std::vector<std::pair<Board, std::string>> &results_list,
+    std::vector<bool> is_new_check,
+    const std::unordered_set<std::string> &temp_results) {
+  // std::vector<bool> is_new_check(results_list.size(), true);
+
+  // for (const std::string &filename : result_files) {
+  // fs::path filepath = fs::current_path() / "results" / filename;
+  // std::ifstream file(filepath);
+
+  // std::unordered_set<std::string> temp_results;
+  // temp_results.reserve(max_in_mem);
+  // std::string line;
+  // while (std::getline(file, line)) {
+  //   temp_results.insert(line);
+  // }
+
+  for (size_t i = 0; i < results_list.size(); ++i) {
+    if (!is_new_check[i])
+      continue;
+
+    const std::string &min_board_hash = results_list[i].second;
+    if (temp_results.count(min_board_hash) > 0) {
+      is_new_check[i] = false;
+    }
+  }
+  // }
 
   return is_new_check;
 }
