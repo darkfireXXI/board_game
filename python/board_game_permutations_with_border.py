@@ -188,8 +188,8 @@ if __name__ in "__main__":
         filename = bg_utils.write_to_file(last_round_increments, "new_increments")
         increment_files.append(filename)
 
-    CHUNK_SIZE = 500
-    MAX_IN_MEM = 1_000
+    CHUNK_SIZE = 5_000
+    MAX_IN_MEM = 10_000_000
 
     start = time.time()
 
@@ -210,29 +210,10 @@ if __name__ in "__main__":
                     with mp.Pool(processes=n_jobs) as pool:
                         results_lists = pool.map(generate_boards_mp, split_increments)
 
-                    is_new_checks = [[True] * len(l) for l in results_lists]
+                    is_new_checks = bg_utils.check_results_vs_files(result_files, results_lists, n_jobs)
 
-                    for result_file in result_files:
-                        with open(Path.cwd() / "results" / result_file, "r") as file:
-                            temp_results = np.array(file.read().splitlines())
-
-                        shm = shared_memory.SharedMemory(create=True, size=temp_results.nbytes)
-                        shm_array = np.ndarray(temp_results.shape, dtype=temp_results.dtype, buffer=shm.buf)
-                        np.copyto(shm_array, temp_results)
-
-                        pool_args = [(r, isc, shm.name, temp_results.shape, temp_results.dtype) for r, isc in zip(results_lists, is_new_checks)]
-                        with mp.Pool(processes=n_jobs) as pool:
-                            is_new_checks = pool.starmap(bg_utils.check_results_vs_file_mp, pool_args)
-
-                        shm.close()
-                        shm.unlink()
-
-                    # results_list = list(itertools.chain.from_iterable(results_lists))
-                    # is_new_check = list(itertools.chain.from_iterable(is_new_checks))
-
-                    # results_list = [r for check, r in zip(is_new_check, results_list) if check]
                     for nj in range(n_jobs):
-                        for j in range(results_lists[nj]):
+                        for j in range(len(results_lists[nj])):
                             if is_new_checks[nj][j]:
                                 board_increment, min_board_hash = results_lists[nj][j]
                                 if min_board_hash not in results:
@@ -253,9 +234,10 @@ if __name__ in "__main__":
                         new_increments = []
                         new_increment_files.append(filename)
 
-            filename = bg_utils.write_to_file(new_increments, "new_increments")
-            new_increments = []
-            new_increment_files.append(filename)
+            if len(new_increments):
+                filename = bg_utils.write_to_file(new_increments, "new_increments")
+                new_increments = []
+                new_increment_files.append(filename)
 
             increment_files = new_increment_files.copy()
             new_increment_files = []

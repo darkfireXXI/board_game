@@ -172,8 +172,8 @@ if __name__ in "__main__":
 
         increment_files.append(filename)
 
-    CHUNK_SIZE = 500
-    MAX_IN_MEM = 1_000
+    CHUNK_SIZE = 5_000
+    MAX_IN_MEM = 10_000_000
 
     start = time.time()
 
@@ -196,15 +196,15 @@ if __name__ in "__main__":
                             generate_boards_mp, [(si, board_min, board_max) for si in split_increments]
                         )
 
-                    results_list = list(itertools.chain.from_iterable(results_lists))
+                    is_new_checks = bg_utils.check_results_vs_files(result_files, results_lists, n_jobs)
 
-                    is_new_check = bg_utils.check_results_vs_files(results_list, result_files)
-
-                    results_list = [r for check, r in zip(is_new_check, results_list) if check]
-                    for board_increment, min_board_hash in results_list:
-                        if min_board_hash not in results:
-                            results.add(min_board_hash)
-                            new_increments.append(board_increment)
+                    for nj in range(n_jobs):
+                        for j in range(len(results_lists[nj])):
+                            if is_new_checks[nj][j]:
+                                board_increment, min_board_hash = results_lists[nj][j]
+                                if min_board_hash not in results:
+                                    results.add(min_board_hash)
+                                    new_increments.append(board_increment)
 
                     # dump excess results to txt file
                     while len(results) >= MAX_IN_MEM:
@@ -220,9 +220,10 @@ if __name__ in "__main__":
                         new_increments = []
                         new_increment_files.append(filename)
 
-            filename = bg_utils.write_to_file(new_increments, "new_increments")
-            new_increments = []
-            new_increment_files.append(filename)
+            if len(new_increments):
+                filename = bg_utils.write_to_file(new_increments, "new_increments")
+                new_increments = []
+                new_increment_files.append(filename)
 
             increment_files = new_increment_files.copy()
             new_increment_files = []

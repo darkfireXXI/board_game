@@ -1,6 +1,8 @@
 #include "board_game_permutations_utils.h"
 
-Board zero_board(const Board &board) {
+Board
+zero_board(const Board& board)
+{
   int size = board.size();
   int min_square = std::numeric_limits<int>::max();
 
@@ -20,7 +22,9 @@ Board zero_board(const Board &board) {
   return zeroed_board;
 }
 
-Board find_most_extreme_board(Board board) {
+Board
+find_most_extreme_board(Board board)
+{
   int size = (int)board.size();
   for (int r = 0; r < size; ++r) {
     for (int c = 0; c < size; ++c) {
@@ -31,8 +35,9 @@ Board find_most_extreme_board(Board board) {
   return board;
 }
 
-std::optional<Board> increment_board(Board board, const int &board_min,
-                                     const int &board_max) {
+std::optional<Board>
+increment_board(Board board, const int& board_min, const int& board_max)
+{
   int size = board.size();
 
   for (int r = 0; r < size; ++r) {
@@ -40,10 +45,10 @@ std::optional<Board> increment_board(Board board, const int &board_min,
       board[r][c] += 1;
 
       bool local_valid =
-          std::abs(board[std::max(0, r - 1)][c] - board[r][c]) <= 2 &&
-          std::abs(board[std::min(size - 1, r + 1)][c] - board[r][c]) <= 2 &&
-          std::abs(board[r][std::max(0, c - 1)] - board[r][c]) <= 2 &&
-          std::abs(board[r][std::min(size - 1, c + 1)] - board[r][c]) <= 2;
+        std::abs(board[std::max(0, r - 1)][c] - board[r][c]) <= 2 &&
+        std::abs(board[std::min(size - 1, r + 1)][c] - board[r][c]) <= 2 &&
+        std::abs(board[r][std::max(0, c - 1)] - board[r][c]) <= 2 &&
+        std::abs(board[r][std::min(size - 1, c + 1)] - board[r][c]) <= 2;
 
       bool boundary_valid = true;
       for (int r = 0; r < size; ++r) {
@@ -66,8 +71,12 @@ std::optional<Board> increment_board(Board board, const int &board_min,
   return std::nullopt;
 }
 
-int calculate_rounds(const Board &most_extreme_board, const int &board_min,
-                     const int &board_max, bool print_boards = false) {
+int
+calculate_rounds(const Board& most_extreme_board,
+                 const int& board_min,
+                 const int& board_max,
+                 bool print_boards = false)
+{
   Board board = most_extreme_board;
   int rounds = 0;
 
@@ -90,8 +99,10 @@ int calculate_rounds(const Board &most_extreme_board, const int &board_min,
   return rounds;
 }
 
-bool check_board_is_new_combo(Board board,
-                              const std::unordered_set<std::string> &results) {
+std::tuple<bool, std::string>
+check_board_is_new_combo(Board board,
+                         const std::unordered_set<std::string>& results)
+{
   Board rotation = zero_board(board);
 
   std::vector<std::string> hashes(4);
@@ -102,18 +113,19 @@ bool check_board_is_new_combo(Board board,
     hashes[i] = hash_board(rotation);
   }
 
-  for (std::string h : hashes) {
-    if (results.count(h) > 0) {
-      return false;
-    }
+  std::sort(hashes.begin(), hashes.end());
+  if (results.count(hashes[0]) > 0) {
+    return { false, "" };
   }
 
-  return true;
+  return { true, hashes[0] };
 }
 
 std::unordered_map<std::string, Board>
-generate_all_board_increments(Board input_board, const int &board_min,
-                              const int &board_max) {
+generate_all_board_increments(Board input_board,
+                              const int& board_min,
+                              const int& board_max)
+{
   int size = input_board.size();
   std::unordered_set<std::string> board_hashes;
   std::unordered_map<std::string, Board> board_increments;
@@ -127,14 +139,14 @@ generate_all_board_increments(Board input_board, const int &board_min,
       const int val = board[r][c];
 
       bool local_valid =
-          std::abs(board[std::max(0, r - 1)][c] - val) <= 2 &&
-          std::abs(board[std::min(size - 1, r + 1)][c] - val) <= 2 &&
-          std::abs(board[r][std::max(0, c - 1)] - val) <= 2 &&
-          std::abs(board[r][std::min(size - 1, c + 1)] - val) <= 2;
+        std::abs(board[std::max(0, r - 1)][c] - val) <= 2 &&
+        std::abs(board[std::min(size - 1, r + 1)][c] - val) <= 2 &&
+        std::abs(board[r][std::max(0, c - 1)] - val) <= 2 &&
+        std::abs(board[r][std::min(size - 1, c + 1)] - val) <= 2;
 
       bool boundary_valid = true;
-      for (int r = 0; r < size; ++r) {
-        for (int c = 0; c < size; ++c) {
+      for (size_t r = 0; r < size; ++r) {
+        for (size_t c = 0; c < size; ++c) {
           if (board[r][c] < board_min || board[r][c] > board_max) {
             boundary_valid = false;
             break;
@@ -143,10 +155,11 @@ generate_all_board_increments(Board input_board, const int &board_min,
       }
 
       if (local_valid && boundary_valid) {
-        if (check_board_is_new_combo(board, board_hashes)) {
-          std::string board_hash = hash_board(zero_board(board));
-          board_hashes.insert(board_hash);
-          board_increments[board_hash] = board;
+        auto [is_new_combo, min_board_hash] =
+          check_board_is_new_combo(board, board_hashes);
+        if (is_new_combo) {
+          board_hashes.insert(min_board_hash);
+          board_increments[min_board_hash] = board;
         }
       }
 
@@ -157,20 +170,22 @@ generate_all_board_increments(Board input_board, const int &board_min,
   return board_increments;
 }
 
-std::vector<std::pair<Board, std::vector<std::string>>>
-generate_boards_mp(const std::vector<Board> &split_increments,
-                   const int &board_min, const int &board_max) {
-  std::vector<std::pair<Board, std::vector<std::string>>> new_boards;
+std::vector<std::pair<Board, std::string>>
+generate_boards_mp(const std::vector<Board>& split_increments,
+                   const int& board_min,
+                   const int& board_max)
+{
+  std::vector<std::pair<Board, std::string>> new_boards;
   int size = split_increments[0].size();
   new_boards.reserve(split_increments.size() * size * size);
 
   std::vector<std::string> hashes(4);
-  for (const Board &board : split_increments) {
+  for (const Board& board : split_increments) {
     std::unordered_map<std::string, Board> increments =
-        generate_all_board_increments(board, board_min, board_max);
+      generate_all_board_increments(board, board_min, board_max);
 
-    for (const std::pair<const std::string, Board> &entry : increments) {
-      const Board &board_increment = entry.second;
+    for (const std::pair<const std::string, Board>& entry : increments) {
+      const Board& board_increment = entry.second;
       Board rotation = zero_board(board_increment);
 
       hashes[0] = hash_board(rotation);
@@ -180,14 +195,18 @@ generate_boards_mp(const std::vector<Board> &split_increments,
         hashes[i] = hash_board(rotation);
       }
 
-      new_boards.emplace_back(board_increment, hashes);
+    std:
+      sort(hashes.begin(), hashes.end());
+      new_boards.emplace_back(board_increment, hashes[0]);
     }
   }
 
   return new_boards;
 }
 
-int main(int argc, char *argv[]) {
+int
+main(int argc, char* argv[])
+{
   int size = 2, n_jobs = 1;
 
   for (size_t i = 1; i < argc; ++i) {
@@ -213,26 +232,25 @@ int main(int argc, char *argv[]) {
     }
   }
   int rounds =
-      calculate_rounds(most_extreme_board, board_min, board_max, false);
+    calculate_rounds(most_extreme_board, board_min, board_max, false);
   std::cout << rounds << " rounds for a " << size << "x" << size << " board\n";
 
   Board zeroed_board = zero_board(initial_board);
-  std::unordered_set<std::string> results = {hash_board(zeroed_board)};
+  std::unordered_set<std::string> results = { hash_board(zeroed_board) };
   std::vector<std::string> result_files;
-  std::vector<Board> last_round_increments = {zeroed_board};
+  std::vector<Board> last_round_increments = { zeroed_board };
   std::vector<Board> new_increments;
   std::vector<std::string> increment_files;
   std::vector<std::string> new_increment_files;
 
   if (n_jobs > 1) {
-
     long long now = get_current_time_ms();
 
     std::string filename = "new_increments_" + std::to_string(now) + ".txt";
     fs::path full_path = fs::current_path() / "new_increments" / filename;
 
     std::ofstream file(full_path);
-    for (const Board &increment : last_round_increments) {
+    for (const Board& increment : last_round_increments) {
       file << hash_board(increment) << "\n";
     }
 
@@ -249,7 +267,7 @@ int main(int argc, char *argv[]) {
     long long round_start = get_current_time_ms();
 
     if (n_jobs > 1) {
-      for (const std::string &filename : increment_files) {
+      for (const std::string& filename : increment_files) {
         fs::path filepath = fs::current_path() / "new_increments" / filename;
         std::ifstream file(filepath);
 
@@ -262,75 +280,57 @@ int main(int argc, char *argv[]) {
 
         std::vector<Board> increments;
         increments.reserve(lines.size());
-        // for (const std::string &hash_str : lines) {
-        //   increments.push_back(board_hash_to_array(hash_str, size));
-        // }
-
-        std::transform(lines.begin(), lines.end(),
+        std::transform(lines.begin(),
+                       lines.end(),
                        std::back_inserter(increments),
-                       [&size](const std::string &hash_str) {
+                       [&size](const std::string& hash_str) {
                          return board_hash_to_array(hash_str, size);
                        });
 
         for (size_t i = 0; i < increments.size(); i += CHUNK_SIZE * n_jobs) {
           size_t chunk_end =
-              std::min(i + CHUNK_SIZE * n_jobs, increments.size());
+            std::min(i + CHUNK_SIZE * n_jobs, increments.size());
           std::vector<Board> chunk(increments.begin() + i,
                                    increments.begin() + chunk_end);
 
           std::vector<std::vector<Board>> split_increments =
-              split_list(chunk, n_jobs);
+            split_list(chunk, n_jobs);
 
-          std::vector<std::future<
-              std::vector<std::pair<Board, std::vector<std::string>>>>>
-              futures;
-          for (const std::vector<Board> &split : split_increments) {
-            futures.push_back(std::async(std::launch::async, generate_boards_mp,
-                                         split, board_min, board_max));
+          std::vector<std::future<std::vector<std::pair<Board, std::string>>>>
+            calc_futures;
+          for (const std::vector<Board>& split : split_increments) {
+            calc_futures.push_back(std::async(std::launch::async,
+                                              generate_boards_mp,
+                                              split,
+                                              board_min,
+                                              board_max));
           }
 
-          // std::vector<std::pair<Board, std::vector<std::string>>>
-          // results_list; results_list.reserve(n_jobs); for (std::future<
-          //          std::vector<std::pair<Board, std::vector<std::string>>>>
-          //          &future : futures) {
-          //   std::vector<std::pair<Board, std::vector<std::string>>>
-          //       result_chunk = future.get();
-          //   results_list.insert(results_list.end(), result_chunk.begin(),
-          //                       result_chunk.end());
+          std::vector<std::vector<std::pair<Board, std::string>>> results_lists;
+          results_lists.reserve(n_jobs);
+          for (auto& calc_future : calc_futures) {
+            results_lists.push_back(calc_future.get());
+          }
+
+          // std::vector<std::vector<bool>> is_new_checks;
+          // is_new_checks.reserve(n_jobs);
+          // for (const auto &result_chunk : results_lists) {
+          //   is_new_checks.emplace_back(result_chunk.size(), true);
           // }
 
-          std::vector<std::pair<Board, std::vector<std::string>>> results_list;
-          results_list.reserve(CHUNK_SIZE * n_jobs);
+          std::vector<std::vector<bool>> is_new_checks = check_results_vs_files(
+            result_files, results_lists, n_jobs, MAX_IN_MEM);
 
-          for (std::future<
-                   std::vector<std::pair<Board, std::vector<std::string>>>>
-                   &future : futures) {
-            std::vector<std::pair<Board, std::vector<std::string>>> chunk =
-                future.get();
-            results_list.insert(results_list.end(),
-                                std::make_move_iterator(chunk.begin()),
-                                std::make_move_iterator(chunk.end()));
-          }
-
-          std::vector<bool> is_new_check =
-              check_results_vs_files(results_list, result_files);
-
-          for (size_t i = 0; i < results_list.size(); ++i) {
-            if (!is_new_check[i])
-              continue;
-
-            const auto &[board_increment, rotated_hashes] = results_list[i];
-            bool is_duplicate = false;
-            for (const std::string &h : rotated_hashes) {
-              if (results.find(h) != results.end()) {
-                is_duplicate = true;
-                break;
+          for (size_t nj = 0; nj < n_jobs; ++nj) {
+            for (size_t j = 0; j < results_lists[nj].size(); ++j) {
+              if (is_new_checks[nj][j]) {
+                const auto& [board_increment, min_board_hash] =
+                  results_lists[nj][j];
+                if (results.count(min_board_hash) == 0) {
+                  results.insert(min_board_hash);
+                  new_increments.push_back(board_increment);
+                }
               }
-            }
-
-            if (!is_duplicate) {
-              results.insert(rotated_hashes[0]);
-              new_increments.push_back(board_increment);
             }
           }
 
@@ -347,7 +347,7 @@ int main(int argc, char *argv[]) {
 
             std::string filename = write_to_file(items_to_write, "results");
 
-            for (const std::string &item : items_to_write) {
+            for (const std::string& item : items_to_write) {
               results.erase(item);
             }
 
@@ -357,7 +357,7 @@ int main(int argc, char *argv[]) {
           // dump excess new increments to txt file
           if (new_increments.size() >= MAX_IN_MEM) {
             std::string filename =
-                write_to_file(new_increments, "new_increments");
+              write_to_file(new_increments, "new_increments");
             new_increments.clear();
             new_increment_files.push_back(filename);
           }
@@ -375,19 +375,19 @@ int main(int argc, char *argv[]) {
       for (std::size_t i = 0; i < last_round_increments.size(); ++i) {
         Board last_round_new_increment = last_round_increments[i];
         std::unordered_map<std::string, Board> board_increments =
-            generate_all_board_increments(last_round_new_increment, board_min,
-                                          board_max);
+          generate_all_board_increments(
+            last_round_new_increment, board_min, board_max);
 
         for (std::unordered_map<std::string, Board>::iterator it =
-                 board_increments.begin();
-             it != board_increments.end(); ++it) {
+               board_increments.begin();
+             it != board_increments.end();
+             ++it) {
           Board board_increment = it->second;
-          bool is_new_combo =
-              check_board_is_new_combo(board_increment, results);
+          auto [is_new_combo, min_board_hash] =
+            check_board_is_new_combo(board_increment, results);
 
           if (is_new_combo) {
-            Board zeroed_board = zero_board(board_increment);
-            results.insert(hash_board(zeroed_board));
+            results.insert(min_board_hash);
             new_increments.push_back(board_increment);
           }
         }
@@ -395,14 +395,14 @@ int main(int argc, char *argv[]) {
     }
 
     long long new_board_count =
-        get_file_item_count(increment_files, "new_increments");
+      get_file_item_count(increment_files, "new_increments");
     new_board_count += new_increments.size();
     long long result_count = get_file_item_count(result_files, "results");
     result_count += results.size();
 
     std::time_t now = std::time(nullptr);
-    display_round_stats(round, rounds, start, round_start, new_board_count,
-                        result_count);
+    display_round_stats(
+      round, rounds, start, round_start, new_board_count, result_count);
 
     last_round_increments = new_increments;
     new_increments.clear();

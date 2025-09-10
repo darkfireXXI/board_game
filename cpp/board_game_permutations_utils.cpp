@@ -1,14 +1,18 @@
 #include "board_game_permutations_utils.h"
 
-long long get_current_time_ms() {
+long long
+get_current_time_ms()
+{
   std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
   std::chrono::system_clock::duration duration = now.time_since_epoch();
   std::chrono::milliseconds millis =
-      std::chrono::duration_cast<std::chrono::milliseconds>(duration);
+    std::chrono::duration_cast<std::chrono::milliseconds>(duration);
   return millis.count();
 }
 
-void print_board(const Board &board) {
+void
+print_board(const Board& board)
+{
   std::cout << "Board:\n";
   for (const std::vector row : board) {
     for (int val : row) {
@@ -21,7 +25,9 @@ void print_board(const Board &board) {
   std::cout << std::endl;
 }
 
-Board rotate_board_90(Board board) {
+Board
+rotate_board_90(Board board)
+{
   int size = board.size();
 
   // transpose
@@ -39,11 +45,15 @@ Board rotate_board_90(Board board) {
   return board;
 }
 
-Board generate_initial_board(const int &size) {
+Board
+generate_initial_board(const int& size)
+{
   return Board(size, std::vector<int>(size, 0));
 }
 
-std::string hash_board(const Board &board) {
+std::string
+hash_board(const Board& board)
+{
   int size = board.size();
   std::string board_str;
   board_str.reserve(board.size() * board.size() * 3);
@@ -58,7 +68,9 @@ std::string hash_board(const Board &board) {
   return board_str;
 }
 
-Board board_hash_to_array(const std::string &board_hash_str, int size) {
+Board
+board_hash_to_array(const std::string& board_hash_str, int size)
+{
   std::vector<int> flat_values;
   std::stringstream ss(board_hash_str);
   std::string token;
@@ -77,8 +89,9 @@ Board board_hash_to_array(const std::string &board_hash_str, int size) {
   return board;
 }
 
-std::vector<std::vector<Board>> split_list(const std::vector<Board> &list,
-                                           int n) {
+std::vector<std::vector<Board>>
+split_list(const std::vector<Board>& list, int n)
+{
   int total = list.size();
   int split = std::max(total / n, 1);
 
@@ -99,41 +112,84 @@ std::vector<std::vector<Board>> split_list(const std::vector<Board> &list,
   return splits;
 }
 
-std::string write_to_file(const std::unordered_set<std::string> &results,
-                          const std::string &folder_name) {
+std::string
+write_to_file(const std::unordered_set<std::string>& results,
+              const std::string& folder_name)
+{
   std::string filename =
-      folder_name + "_" + std::to_string(get_current_time_ms()) + ".txt";
+    folder_name + "_" + std::to_string(get_current_time_ms()) + ".txt";
   fs::path filepath = fs::current_path() / folder_name / filename;
 
   std::ofstream file(filepath);
-  for (const std::string &result : results) {
+  for (const std::string& result : results) {
     file << result << "\n";
   }
 
   return filename;
 }
 
-std::string write_to_file(const std::vector<Board> &new_increments,
-                          const std::string &folder_name) {
+std::string
+write_to_file(const std::vector<Board>& new_increments,
+              const std::string& folder_name)
+{
   std::string filename =
-      folder_name + "_" + std::to_string(get_current_time_ms()) + ".txt";
+    folder_name + "_" + std::to_string(get_current_time_ms()) + ".txt";
   fs::path filepath = fs::current_path() / folder_name / filename;
 
   std::ofstream file(filepath);
-  for (const Board &new_increment : new_increments) {
+  for (const Board& new_increment : new_increments) {
     file << hash_board(new_increment) << "\n";
   }
 
   return filename;
 }
 
-std::vector<bool> check_results_vs_files(
-    const std::vector<std::pair<Board, std::string>> &results_list,
-    const std::vector<std::string> &result_files, const long long &max_in_mem) {
-  std::vector<bool> is_new_check(results_list.size(), true);
+// std::vector<bool> check_results_vs_files(
+//     const std::vector<std::pair<Board, std::string>> &results_list,
+//     const std::vector<std::string> &result_files, const long long
+//     &max_in_mem) {
+//   std::vector<bool> is_new_check(results_list.size(), true);
 
-  for (const std::string &filename : result_files) {
-    fs::path filepath = fs::current_path() / "results" / filename;
+//   for (const std::string &filename : result_files) {
+//     fs::path filepath = fs::current_path() / "results" / filename;
+//     std::ifstream file(filepath);
+
+//     std::unordered_set<std::string> temp_results;
+//     temp_results.reserve(max_in_mem);
+//     std::string line;
+//     while (std::getline(file, line)) {
+//       temp_results.insert(line);
+//     }
+
+//     for (size_t i = 0; i < results_list.size(); ++i) {
+//       if (!is_new_check[i])
+//         continue;
+
+//       const std::string &min_board_hash = results_list[i].second;
+//       if (temp_results.count(min_board_hash) > 0) {
+//         is_new_check[i] = false;
+//       }
+//     }
+//   }
+
+//   return is_new_check;
+// }
+
+std::vector<std::vector<bool>>
+check_results_vs_files(
+  const std::vector<std::string>& result_files,
+  const std::vector<std::vector<std::pair<Board, std::string>>>& results_lists,
+  const int& n_jobs,
+  const long long& max_in_mem)
+{
+  std::vector<std::vector<bool>> is_new_checks;
+  is_new_checks.reserve(n_jobs);
+  for (const auto& result_chunk : results_lists) {
+    is_new_checks.emplace_back(result_chunk.size(), true);
+  }
+
+  for (const std::string& result_file : result_files) {
+    fs::path filepath = fs::current_path() / "results" / result_file;
     std::ifstream file(filepath);
 
     std::unordered_set<std::string> temp_results;
@@ -143,11 +199,32 @@ std::vector<bool> check_results_vs_files(
       temp_results.insert(line);
     }
 
-    for (size_t i = 0; i < results_list.size(); ++i) {
-      if (!is_new_check[i])
-        continue;
+    std::vector<std::future<std::vector<bool>>> check_futures;
+    for (size_t nj = 0; nj < n_jobs; ++nj) {
+      check_futures.push_back(std::async(std::launch::async,
+                                         check_results_vs_file_mp,
+                                         std::cref(results_lists[nj]),
+                                         is_new_checks[nj],
+                                         std::cref(temp_results)));
+    }
 
-      const std::string &min_board_hash = results_list[i].second;
+    for (size_t nj = 0; nj < n_jobs; ++nj) {
+      is_new_checks[nj] = check_futures[nj].get();
+    }
+  }
+
+  return is_new_checks;
+}
+
+std::vector<bool>
+check_results_vs_file_mp(
+  const std::vector<std::pair<Board, std::string>>& results_list,
+  std::vector<bool> is_new_check,
+  const std::unordered_set<std::string>& temp_results)
+{
+  for (size_t i = 0; i < results_list.size(); ++i) {
+    if (is_new_check[i]) {
+      const std::string& min_board_hash = results_list[i].second;
       if (temp_results.count(min_board_hash) > 0) {
         is_new_check[i] = false;
       }
@@ -157,45 +234,15 @@ std::vector<bool> check_results_vs_files(
   return is_new_check;
 }
 
-std::vector<bool> check_results_vs_file_mp(
-    const std::vector<std::pair<Board, std::string>> &results_list,
-    std::vector<bool> is_new_check,
-    const std::unordered_set<std::string> &temp_results) {
-  // std::vector<bool> is_new_check(results_list.size(), true);
-
-  // for (const std::string &filename : result_files) {
-  // fs::path filepath = fs::current_path() / "results" / filename;
-  // std::ifstream file(filepath);
-
-  // std::unordered_set<std::string> temp_results;
-  // temp_results.reserve(max_in_mem);
-  // std::string line;
-  // while (std::getline(file, line)) {
-  //   temp_results.insert(line);
-  // }
-
-  for (size_t i = 0; i < results_list.size(); ++i) {
-    if (!is_new_check[i])
-      continue;
-
-    const std::string &min_board_hash = results_list[i].second;
-    if (temp_results.count(min_board_hash) > 0) {
-      is_new_check[i] = false;
-    }
-  }
-  // }
-
-  return is_new_check;
-}
-
-long long get_file_item_count(std::vector<std::string> files,
-                              std::string folder_name) {
+long long
+get_file_item_count(std::vector<std::string> files, std::string folder_name)
+{
   long long count = 0;
 
   if (folder_name == "new_increments") {
     for (size_t i = 0; i < files.size(); ++i) {
       std::filesystem::path file_path =
-          std::filesystem::current_path() / folder_name / files[i];
+        std::filesystem::current_path() / folder_name / files[i];
       std::ifstream file(file_path);
 
       std::string line;
@@ -209,7 +256,7 @@ long long get_file_item_count(std::vector<std::string> files,
     long long count_per_file = 0;
     if (files.size() > 0) {
       std::filesystem::path file_path =
-          std::filesystem::current_path() / folder_name / files[0];
+        std::filesystem::current_path() / folder_name / files[0];
       std::ifstream file(file_path);
 
       std::string line;
@@ -223,9 +270,14 @@ long long get_file_item_count(std::vector<std::string> files,
   return count;
 }
 
-void display_round_stats(int round, int rounds, std::time_t start,
-                         std::time_t round_start, int new_board_count,
-                         int result_count) {
+void
+display_round_stats(int round,
+                    int rounds,
+                    std::time_t start,
+                    std::time_t round_start,
+                    int new_board_count,
+                    int result_count)
+{
   long long now = get_current_time_ms();
 
   double round_seconds_elapsed = (now - round_start) / 1000.0;
@@ -236,7 +288,7 @@ void display_round_stats(int round, int rounds, std::time_t start,
 
   double percent_done = (round + 0.0) / rounds * 100.0;
   double time_spent_ratio =
-      ((round_seconds_elapsed + 0.0) / (total_seconds_elapsed + 1e-6)) * 100.0;
+    ((round_seconds_elapsed + 0.0) / (total_seconds_elapsed + 1e-6)) * 100.0;
 
   std::cout << std::fixed << std::setprecision(1);
 

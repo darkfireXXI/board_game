@@ -155,7 +155,7 @@ Here are the results so far:
 | 1x1 | 1 | 1 |
 | 2x2 | 23 | 23 |
 | 3x3 | 20,389 | 22,050 |
-| 4x4 | 207,016,289 | >207,016,289 |
+| 4x4 | 207,016,289 | 283,415,151 |
 | 10x10 | ? | ? |
 
 If these numbers seem too big for boards this small good! I'm skeptical myself and encourage people to check the codes used for these calculations in this repository!

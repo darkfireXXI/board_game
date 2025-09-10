@@ -1,9 +1,9 @@
 import time
 from pathlib import Path
+import multiprocessing as mp
 from multiprocessing import shared_memory
-
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
-
 
 def generate_initial_board(size):
     initial_board = np.zeros((size, size))
@@ -55,38 +55,28 @@ def write_to_file(items, folder_name):
     return filename
 
 
-def check_results_vs_files(results_list, result_files):
-    is_new_check = [True] * len(results_list)
-    for filename in result_files:
-        with open(Path.cwd() / "results" / filename, "r") as file:
-            temp_results = file.read().splitlines()
 
-        temp_results = set(temp_results)
 
+def check_results_vs_files(result_files, results_lists, n_jobs):
+
+    def check_results_vs_file_mp(results_list, is_new_check):
         for i, (board_increment, min_board_hash) in enumerate(results_list):
             if is_new_check[i] and min_board_hash in temp_results:
                 is_new_check[i] = False
 
-    return is_new_check
+        return is_new_check
 
+    is_new_checks = [[True] * len(l) for l in results_lists]
 
-def check_results_vs_file_mp(results_list, is_new_check, shm_name, shape, dtype):
-    # is_new_check = [True] * len(results_list)
-    # for filename in result_files:
-    #     with open(Path.cwd() / "results" / filename, "r") as file:
-    #         temp_results = file.read().splitlines()
+    for result_file in result_files:
+        with open(Path.cwd() / "results" / result_file, "r") as file:
+            temp_results = set(file.read().splitlines())
 
-    #     temp_results = set(temp_results)
+        with ThreadPoolExecutor(max_workers=n_jobs) as executor:
+            futures = [executor.submit(check_results_vs_file_mp, r, isc) for r, isc in zip(results_lists, is_new_checks)]
+            is_new_checks = [f.result() for f in futures]
 
-    shm = shared_memory.SharedMemory(name=shm_name)
-    temp_results = np.ndarray(shape, dtype=dtype, buffer=shm.buf)
-
-    for i, (board_increment, min_board_hash) in enumerate(results_list):
-        if is_new_check[i] and min_board_hash in temp_results:
-            is_new_check[i] = False
-
-    return is_new_check
-
+    return is_new_checks
 
 def get_file_item_count(files, folder_name):
     if folder_name == "new_increments":
