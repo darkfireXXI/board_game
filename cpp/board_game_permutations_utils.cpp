@@ -144,37 +144,6 @@ write_to_file(const std::vector<Board>& new_increments,
   return filename;
 }
 
-// std::vector<bool> check_results_vs_files(
-//     const std::vector<std::pair<Board, std::string>> &results_list,
-//     const std::vector<std::string> &result_files, const long long
-//     &max_in_mem) {
-//   std::vector<bool> is_new_check(results_list.size(), true);
-
-//   for (const std::string &filename : result_files) {
-//     fs::path filepath = fs::current_path() / "results" / filename;
-//     std::ifstream file(filepath);
-
-//     std::unordered_set<std::string> temp_results;
-//     temp_results.reserve(max_in_mem);
-//     std::string line;
-//     while (std::getline(file, line)) {
-//       temp_results.insert(line);
-//     }
-
-//     for (size_t i = 0; i < results_list.size(); ++i) {
-//       if (!is_new_check[i])
-//         continue;
-
-//       const std::string &min_board_hash = results_list[i].second;
-//       if (temp_results.count(min_board_hash) > 0) {
-//         is_new_check[i] = false;
-//       }
-//     }
-//   }
-
-//   return is_new_check;
-// }
-
 std::vector<std::vector<bool>>
 check_results_vs_files(
   const std::vector<std::string>& result_files,

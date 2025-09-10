@@ -1,9 +1,9 @@
 import time
-from pathlib import Path
-import multiprocessing as mp
-from multiprocessing import shared_memory
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
 import numpy as np
+
 
 def generate_initial_board(size):
     initial_board = np.zeros((size, size))
@@ -55,8 +55,6 @@ def write_to_file(items, folder_name):
     return filename
 
 
-
-
 def check_results_vs_files(result_files, results_lists, n_jobs):
 
     def check_results_vs_file_mp(results_list, is_new_check):
@@ -66,17 +64,20 @@ def check_results_vs_files(result_files, results_lists, n_jobs):
 
         return is_new_check
 
-    is_new_checks = [[True] * len(l) for l in results_lists]
+    is_new_checks = [[True] * len(rl) for rl in results_lists]
 
     for result_file in result_files:
         with open(Path.cwd() / "results" / result_file, "r") as file:
             temp_results = set(file.read().splitlines())
 
         with ThreadPoolExecutor(max_workers=n_jobs) as executor:
-            futures = [executor.submit(check_results_vs_file_mp, r, isc) for r, isc in zip(results_lists, is_new_checks)]
+            futures = [
+                executor.submit(check_results_vs_file_mp, r, isc) for r, isc in zip(results_lists, is_new_checks)
+            ]
             is_new_checks = [f.result() for f in futures]
 
     return is_new_checks
+
 
 def get_file_item_count(files, folder_name):
     if folder_name == "new_increments":

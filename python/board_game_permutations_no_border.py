@@ -1,5 +1,4 @@
 import argparse
-import itertools
 import multiprocessing as mp
 import time
 from pathlib import Path

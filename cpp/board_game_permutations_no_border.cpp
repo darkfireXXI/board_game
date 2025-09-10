@@ -312,12 +312,6 @@ main(int argc, char* argv[])
             results_lists.push_back(calc_future.get());
           }
 
-          // std::vector<std::vector<bool>> is_new_checks;
-          // is_new_checks.reserve(n_jobs);
-          // for (const auto &result_chunk : results_lists) {
-          //   is_new_checks.emplace_back(result_chunk.size(), true);
-          // }
-
           std::vector<std::vector<bool>> is_new_checks = check_results_vs_files(
             result_files, results_lists, n_jobs, MAX_IN_MEM);
 
@@ -364,9 +358,11 @@ main(int argc, char* argv[])
         }
       }
 
-      std::string filename = write_to_file(new_increments, "new_increments");
-      new_increments.clear();
-      new_increment_files.push_back(filename);
+      if (new_increments.size() > 0) {
+        std::string filename = write_to_file(new_increments, "new_increments");
+        new_increments.clear();
+        new_increment_files.push_back(filename);
+      }
 
       increment_files = new_increment_files;
       new_increment_files.clear();

@@ -304,37 +304,8 @@ main(int argc, char* argv[])
             results_lists.push_back(calc_future.get());
           }
 
-          // std::vector<std::vector<bool>> is_new_checks;
-          // is_new_checks.reserve(n_jobs);
-          // for (const auto &result_chunk : results_lists) {
-          //   is_new_checks.emplace_back(result_chunk.size(), true);
-          // }
-
           std::vector<std::vector<bool>> is_new_checks = check_results_vs_files(
             result_files, results_lists, n_jobs, MAX_IN_MEM);
-          // for (const std::string &result_file : result_files) {
-          //   fs::path filepath = fs::current_path() / "results" / result_file;
-          //   std::ifstream file(filepath);
-
-          //   std::unordered_set<std::string> temp_results;
-          //   temp_results.reserve(MAX_IN_MEM);
-          //   std::string line;
-          //   while (std::getline(file, line)) {
-          //     temp_results.insert(line);
-          //   }
-
-          //   std::vector<std::future<std::vector<bool>>> check_futures;
-          //   for (size_t nj = 0; nj < n_jobs; ++nj) {
-          //     check_futures.push_back(
-          //         std::async(std::launch::async, check_results_vs_file_mp,
-          //                    std::cref(results_lists[nj]), is_new_checks[nj],
-          //                    std::cref(temp_results)));
-          //   }
-
-          //   for (size_t nj = 0; nj < n_jobs; ++nj) {
-          //     is_new_checks[nj] = check_futures[nj].get();
-          //   }
-          // }
 
           for (size_t nj = 0; nj < n_jobs; ++nj) {
             for (size_t j = 0; j < results_lists[nj].size(); ++j) {

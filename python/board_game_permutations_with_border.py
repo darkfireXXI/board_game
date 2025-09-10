@@ -1,7 +1,5 @@
 import argparse
-import itertools
 import multiprocessing as mp
-from multiprocessing import shared_memory
 import time
 from pathlib import Path
 
