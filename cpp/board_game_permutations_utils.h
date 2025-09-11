@@ -44,17 +44,17 @@ std::string
 write_to_file(const std::vector<Board>& new_increments,
               const std::string& folder_name);
 
-std::vector<std::vector<bool>>
+std::vector<std::vector<uint8_t>>
 check_results_vs_files(
   const std::vector<std::string>& result_files,
   const std::vector<std::vector<std::pair<Board, std::string>>>& results_lists,
   const int& n_jobs,
   const long long& max_in_mem);
 
-std::vector<bool>
+std::vector<uint8_t>
 check_results_vs_file_mp(
   const std::vector<std::pair<Board, std::string>>& results_list,
-  std::vector<bool> is_new_check,
+  std::vector<uint8_t> is_new_check,
   const std::unordered_set<std::string>& temp_results);
 
 long long

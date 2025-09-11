@@ -144,17 +144,17 @@ write_to_file(const std::vector<Board>& new_increments,
   return filename;
 }
 
-std::vector<std::vector<bool>>
+std::vector<std::vector<uint8_t>>
 check_results_vs_files(
   const std::vector<std::string>& result_files,
   const std::vector<std::vector<std::pair<Board, std::string>>>& results_lists,
   const int& n_jobs,
   const long long& max_in_mem)
 {
-  std::vector<std::vector<bool>> is_new_checks;
+  std::vector<std::vector<uint8_t>> is_new_checks;
   is_new_checks.reserve(n_jobs);
   for (const auto& result_chunk : results_lists) {
-    is_new_checks.emplace_back(result_chunk.size(), true);
+    is_new_checks.emplace_back(result_chunk.size(), 1);
   }
 
   for (const std::string& result_file : result_files) {
@@ -168,12 +168,13 @@ check_results_vs_files(
       temp_results.insert(line);
     }
 
-    std::vector<std::future<std::vector<bool>>> check_futures;
+    std::vector<std::future<std::vector<uint8_t>>> check_futures;
+    check_futures.reserve(n_jobs);
     for (size_t nj = 0; nj < n_jobs; ++nj) {
       check_futures.push_back(std::async(std::launch::async,
                                          check_results_vs_file_mp,
                                          std::cref(results_lists[nj]),
-                                         is_new_checks[nj],
+                                         std::ref(is_new_checks[nj]),
                                          std::cref(temp_results)));
     }
 
@@ -185,17 +186,17 @@ check_results_vs_files(
   return is_new_checks;
 }
 
-std::vector<bool>
+std::vector<uint8_t>
 check_results_vs_file_mp(
   const std::vector<std::pair<Board, std::string>>& results_list,
-  std::vector<bool> is_new_check,
+  std::vector<uint8_t> is_new_check,
   const std::unordered_set<std::string>& temp_results)
 {
   for (size_t i = 0; i < results_list.size(); ++i) {
     if (is_new_check[i]) {
       const std::string& min_board_hash = results_list[i].second;
       if (temp_results.count(min_board_hash) > 0) {
-        is_new_check[i] = false;
+        is_new_check[i] = 0;
       }
     }
   }

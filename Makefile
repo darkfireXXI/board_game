@@ -29,11 +29,11 @@ compile:
 ifeq ($(SYSTEM), Darwin)
 	@echo 'Compiling on MacOS'
 	@g++ -O3 -march=native -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_with_border.cpp -o cpp/board_game_permutations_with_border
-	@g++ -O3 -march=native -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_no_border.cpp -o cpp/board_game_permutations_no_border
+	#@g++ -O3 -march=native -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_no_border.cpp -o cpp/board_game_permutations_no_border
 else ifeq ($(SYSTEM), Linux)
 	@echo "Compiling on Linux"
 	@clang++ -O3 -march=native -stdlib=libc++ -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_with_border.cpp -o cpp/board_game_permutations_with_border
-	@clang++ -O3 -march=native -stdlib=libc++ -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_no_border.cpp -o cpp/board_game_permutations_no_border
+	#@clang++ -O3 -march=native -stdlib=libc++ -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_no_border.cpp -o cpp/board_game_permutations_no_border
 else
 	@echo "Unsupported operating system $(SYSTEM)"
 endif

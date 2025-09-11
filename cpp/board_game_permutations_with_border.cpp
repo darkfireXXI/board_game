@@ -226,16 +226,22 @@ main(int argc, char* argv[])
   fs::create_directory("new_increments");
   fs::create_directory("results");
 
+  int CHUNK_SIZE = 10'000;
+  int MAX_IN_MEM = 20'000'000;
+
   Board initial_board = generate_initial_board(size);
   Board dropped_board = drop_board(initial_board);
   int rounds = calculate_rounds(dropped_board, false);
   std::cout << rounds << " rounds for a " << size << "x" << size << " board\n";
+  std::cout << "jobs = " << n_jobs << "\n";
 
   Board zeroed_board = zero_board(dropped_board);
   std::unordered_set<std::string> results = { hash_board(zeroed_board) };
+  results.reserve(MAX_IN_MEM);
   std::vector<std::string> result_files;
   std::vector<Board> last_round_increments = { dropped_board };
   std::vector<Board> new_increments;
+  new_increments.reserve(MAX_IN_MEM);
   std::vector<std::string> increment_files;
   std::vector<std::string> new_increment_files;
 
@@ -254,9 +260,6 @@ main(int argc, char* argv[])
     increment_files.push_back(filename);
   }
 
-  int CHUNK_SIZE = 10'000;
-  int MAX_IN_MEM = 20'000'000;
-
   long long start = get_current_time_ms();
 
   for (size_t round = 1; round <= rounds; ++round) {
@@ -268,19 +271,14 @@ main(int argc, char* argv[])
         std::ifstream file(filepath);
         std::vector<std::string> lines;
         lines.reserve(MAX_IN_MEM);
-        std::string line;
-        while (std::getline(file, line)) {
-          lines.emplace_back(std::move(line));
-        }
 
         std::vector<Board> increments;
-        increments.reserve(lines.size());
-        std::transform(lines.begin(),
-                       lines.end(),
-                       std::back_inserter(increments),
-                       [&size](const std::string& hash_str) {
-                         return board_hash_to_array(hash_str, size);
-                       });
+        increments.reserve(MAX_IN_MEM);
+
+        std::string line;
+        while (std::getline(file, line)) {
+            increments.emplace_back(board_hash_to_array(line, size));
+        }
 
         for (size_t i = 0; i < increments.size(); i += CHUNK_SIZE * n_jobs) {
           size_t chunk_end =
@@ -293,6 +291,7 @@ main(int argc, char* argv[])
 
           std::vector<std::future<std::vector<std::pair<Board, std::string>>>>
             calc_futures;
+          calc_futures.reserve(n_jobs);
           for (const std::vector<Board>& split : split_increments) {
             calc_futures.push_back(
               std::async(std::launch::async, generate_boards_mp, split));
@@ -304,7 +303,7 @@ main(int argc, char* argv[])
             results_lists.push_back(calc_future.get());
           }
 
-          std::vector<std::vector<bool>> is_new_checks = check_results_vs_files(
+          std::vector<std::vector<uint8_t>> is_new_checks = check_results_vs_files(
             result_files, results_lists, n_jobs, MAX_IN_MEM);
 
           for (size_t nj = 0; nj < n_jobs; ++nj) {
@@ -347,6 +346,7 @@ main(int argc, char* argv[])
             std::string filename =
               write_to_file(new_increments, "new_increments");
             new_increments.clear();
+            new_increments.reserve(MAX_IN_MEM);
             new_increment_files.push_back(filename);
           }
         }
@@ -355,6 +355,7 @@ main(int argc, char* argv[])
       if (new_increments.size() > 0) {
         std::string filename = write_to_file(new_increments, "new_increments");
         new_increments.clear();
+        new_increments.reserve(MAX_IN_MEM);
         new_increment_files.push_back(filename);
       }
 
