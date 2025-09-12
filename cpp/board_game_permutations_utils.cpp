@@ -159,13 +159,32 @@ check_results_vs_files(
 
   for (const std::string& result_file : result_files) {
     fs::path filepath = fs::current_path() / "results" / result_file;
-    std::ifstream file(filepath);
+    // std::ifstream file(filepath);
 
     std::unordered_set<std::string> temp_results;
     temp_results.reserve(max_in_mem);
-    std::string line;
-    while (std::getline(file, line)) {
-      temp_results.insert(line);
+    // std::string line;
+    // while (std::getline(file, line)) {
+    //   temp_results.insert(line);
+    // }
+
+    // fs::path filepath = fs::current_path() / "new_increments" / filename;
+    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
+
+    std::streamsize file_size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::string buffer(file_size, '\0');
+    file.read(&buffer[0], file_size);
+
+    size_t start_buffer = 0;
+    for (size_t i = 0; i < buffer.size(); ++i) {
+        if (buffer[i] == '\n') {
+            size_t len = i - start_buffer;
+            std::string_view line(&buffer[start_buffer], len);
+            temp_results.insert(std::string(line));
+
+            start_buffer = i + 1;
+        }
     }
 
     std::vector<std::future<std::vector<uint8_t>>> check_futures;
