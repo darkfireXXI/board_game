@@ -26,6 +26,12 @@ print_board(const Board& board)
 }
 
 Board
+generate_initial_board(const int& size)
+{
+  return Board(size, std::vector<int>(size, 0));
+}
+
+Board
 rotate_board_90(Board board)
 {
   int size = board.size();
@@ -45,12 +51,6 @@ rotate_board_90(Board board)
   return board;
 }
 
-Board
-generate_initial_board(const int& size)
-{
-  return Board(size, std::vector<int>(size, 0));
-}
-
 std::string
 hash_board(const Board& board)
 {
@@ -61,6 +61,24 @@ hash_board(const Board& board)
   for (int r = 0; r < size; ++r) {
     for (int c = 0; c < size; ++c) {
       // board_str += std::to_string(r) + ","+ std::to_string(c) + "," +
+      board_str += std::to_string(board[r][c]) + "|";
+    }
+  }
+
+  return board_str;
+}
+
+std::string
+hash_rectangular_board(const Board& board)
+{
+  int rs = int(board.size());
+  int cs = int(board[0].size());
+
+  std::string board_str;
+  board_str.reserve(rs * cs * 3);
+
+  for (int r = 0; r < rs; ++r) {
+    for (int c = 0; c < cs; ++c) {
       board_str += std::to_string(board[r][c]) + "|";
     }
   }
@@ -158,17 +176,10 @@ check_results_vs_files(
   }
 
   for (const std::string& result_file : result_files) {
-    fs::path filepath = fs::current_path() / "results" / result_file;
-    // std::ifstream file(filepath);
-
     std::unordered_set<std::string> temp_results;
     temp_results.reserve(max_in_mem);
-    // std::string line;
-    // while (std::getline(file, line)) {
-    //   temp_results.insert(line);
-    // }
 
-    // fs::path filepath = fs::current_path() / "new_increments" / filename;
+    fs::path filepath = fs::current_path() / "results" / result_file;
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);
 
     std::streamsize file_size = file.tellg();
@@ -178,13 +189,13 @@ check_results_vs_files(
 
     size_t start_buffer = 0;
     for (size_t i = 0; i < buffer.size(); ++i) {
-        if (buffer[i] == '\n') {
-            size_t len = i - start_buffer;
-            std::string_view line(&buffer[start_buffer], len);
-            temp_results.insert(std::string(line));
+      if (buffer[i] == '\n') {
+        size_t len = i - start_buffer;
+        std::string_view line(&buffer[start_buffer], len);
+        temp_results.insert(std::string(line));
 
-            start_buffer = i + 1;
-        }
+        start_buffer = i + 1;
+      }
     }
 
     std::vector<std::future<std::vector<uint8_t>>> check_futures;

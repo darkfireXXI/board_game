@@ -268,24 +268,27 @@ main(int argc, char* argv[])
 
     if (n_jobs > 1) {
       for (const std::string& filename : increment_files) {
-        fs::path filepath = fs::current_path() / "new_increments" / filename;
-        std::ifstream file(filepath);
-
-        std::vector<std::string> lines;
-        lines.reserve(MAX_IN_MEM);
-        std::string line;
-        while (std::getline(file, line)) {
-          lines.emplace_back(std::move(line));
-        }
-
         std::vector<Board> increments;
-        increments.reserve(lines.size());
-        std::transform(lines.begin(),
-                       lines.end(),
-                       std::back_inserter(increments),
-                       [&size](const std::string& hash_str) {
-                         return board_hash_to_array(hash_str, size);
-                       });
+        increments.reserve(MAX_IN_MEM);
+
+        fs::path filepath = fs::current_path() / "new_increments" / filename;
+        std::ifstream file(filepath, std::ios::binary | std::ios::ate);
+
+        std::streamsize file_size = file.tellg();
+        file.seekg(0, std::ios::beg);
+        std::string buffer(file_size, '\0');
+        file.read(&buffer[0], file_size);
+
+        size_t start_buffer = 0;
+        for (size_t i = 0; i < buffer.size(); ++i) {
+          if (buffer[i] == '\n') {
+            size_t len = i - start_buffer;
+            std::string_view line(&buffer[start_buffer], len);
+            increments.push_back(board_hash_to_array(std::string(line), size));
+
+            start_buffer = i + 1;
+          }
+        }
 
         for (size_t i = 0; i < increments.size(); i += CHUNK_SIZE * n_jobs) {
           size_t chunk_end =
@@ -312,8 +315,9 @@ main(int argc, char* argv[])
             results_lists.push_back(calc_future.get());
           }
 
-          std::vector<std::vector<bool>> is_new_checks = check_results_vs_files(
-            result_files, results_lists, n_jobs, MAX_IN_MEM);
+          std::vector<std::vector<uint8_t>> is_new_checks =
+            check_results_vs_files(
+              result_files, results_lists, n_jobs, MAX_IN_MEM);
 
           for (size_t nj = 0; nj < n_jobs; ++nj) {
             for (size_t j = 0; j < results_lists[nj].size(); ++j) {

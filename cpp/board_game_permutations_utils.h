@@ -22,13 +22,16 @@ void
 print_board(const Board& board);
 
 Board
-rotate_board_90(Board board);
+generate_initial_board(const int& size);
 
 Board
-generate_initial_board(const int& size);
+rotate_board_90(Board board);
 
 std::string
 hash_board(const Board& board);
+
+std::string
+hash_rectangular_board(const Board& board);
 
 Board
 board_hash_to_array(const std::string& board_hash_str, int size);

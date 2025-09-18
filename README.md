@@ -146,6 +146,8 @@ The tree for a 2x2 board is shown below and confirms the number of combinations 
 
 ![](https://github.com/darkfireXXI/Board_game/blob/images/tree.jpg)
 
+## Permutation Proof
+
 ## Permutations
 
 Here are the results so far:
@@ -163,6 +165,19 @@ If these numbers seem too big for boards this small good! I'm skeptical myself a
 Another script extrapolates the current results to estimate the 10x10 board will have on the order of 10^24 permutations. Unfortunately that's tracking to be less than the Shannon number, [but is on par with the estimated number of setup permutations of Catan](https://www.reddit.com/r/Catan/comments/9uh2be/how_many_different_map_combinations_on_a_standard/). Regardless, the real objective is a board game where you will likely never play the same starting conditions twice, thus reducing the value of memorizing standard opening practices.
 
 ![](https://github.com/darkfireXXI/Board_game/blob/images/extrapolation.jpg)
+
+| Rows x Cols | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **1** | 1 | 5 | 25 | 125 | 625 | 3,125 | 15,625 | 78,125 | 390,625 | 1,953,125 |
+| **2** | 5 | 85 | 1,459 | 25,061 | 430,491 | 7,394,885 | - | - | - | - |
+| **3** | 25 | 1,459 | 87,825 | 5,305,715 | - | - | - | - | - | - |
+| **4** | 125 | 25,061 | 5,305,715 | ? | - | - | - | - | - | - |
+| **5** | 625 | 430,491 | ? | ? | ? | - | - | - | - | - |
+| **6** | 3,125 | 7,394,885 | ? | ? | ? | ? | - | - | - | - |
+| **7** | 15,625 | ? | ? | ? | ? | ? | ? | - | - | - |
+| **8** | 78,125 | ? | ? | ? | ? | ? | ? | ? | - | - |
+| **9** | 390,625 | ? | ? | ? | ? | ? | ? | ? | ? | - |
+| **10** | 1,953,125 | ? | ? | ? | ? | ? | ? | ? | ? | ? |
 
 ### Video Game Version
 Seeing as I didn't have access to a wood shop, but my computer runs python I began coding the game. Creating a matrix for the board and then using it to make a 3D plot was very straightforward, but randomizing the board was a fun challenge. Furthermore, I didn't want it to be absolutely random, but random within a user defined window. The best way to understand this is to look at the terminal interface to get a sense of the game start up:

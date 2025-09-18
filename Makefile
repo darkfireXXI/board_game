@@ -21,7 +21,9 @@ pyformat:
 
 cppformat:
 	@clang-format -i --style Mozilla cpp/board_game_permutations_with_border.cpp
+	@clang-format -i --style Mozilla cpp/board_game_permutations_with_border_non_unique.cpp
 	@clang-format -i --style Mozilla cpp/board_game_permutations_no_border.cpp
+	@clang-format -i --style Mozilla cpp/board_game_permutations_no_border_non_unique.cpp
 	@clang-format -i --style Mozilla cpp/board_game_permutations_utils.cpp
 	@clang-format -i --style Mozilla cpp/board_game_permutations_utils.h
 
@@ -29,11 +31,15 @@ compile:
 ifeq ($(SYSTEM), Darwin)
 	@echo 'Compiling on MacOS'
 	@g++ -O3 -march=native -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_with_border.cpp -o cpp/board_game_permutations_with_border
-	#@g++ -O3 -march=native -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_no_border.cpp -o cpp/board_game_permutations_no_border
+	@g++ -O3 -march=native -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_with_border_non_unique.cpp -o cpp/board_game_permutations_with_border_non_unique
+	@g++ -O3 -march=native -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_no_border.cpp -o cpp/board_game_permutations_no_border
+	@g++ -O3 -march=native -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_no_border_non_unique.cpp -o cpp/board_game_permutations_no_border_non_unique
 else ifeq ($(SYSTEM), Linux)
 	@echo "Compiling on Linux"
 	@clang++ -O3 -march=native -stdlib=libc++ -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_with_border.cpp -o cpp/board_game_permutations_with_border
-	#@clang++ -O3 -march=native -stdlib=libc++ -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_no_border.cpp -o cpp/board_game_permutations_no_border
+	@clang++ -O3 -march=native -stdlib=libc++ -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_with_border_non_unique.cpp -o cpp/board_game_permutations_with_border_non_unique
+	@clang++ -O3 -march=native -stdlib=libc++ -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_no_border.cpp -o cpp/board_game_permutations_no_border
+	@clang++ -O3 -march=native -stdlib=libc++ -ffast-math -std=c++17 cpp/board_game_permutations_utils.cpp cpp/board_game_permutations_no_border_non_unique.cpp -o cpp/board_game_permutations_no_border_non_unique
 else
 	@echo "Unsupported operating system $(SYSTEM)"
 endif

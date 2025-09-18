@@ -114,3 +114,28 @@ def display_round_stats(round_, rounds, start, round_start, new_board_count, res
     print(f"\t{hours_elapsed} hours or {seconds_elapsed} seconds elapsed so far")
     print(f"\t{round((round_seconds_elapsed / (seconds_elapsed + 1e-6)) * 100, 1)}% of total time spent on this round")
     print()
+
+
+# import random
+# import struct
+
+# def gen_thing():
+#     # thing = ""
+#     # for _ in range(25):
+#     #     thing += f"{random.randint(-5, 6)}|"
+#     # return thing
+#     things = [f"{random.randint(-5, 6)}" for _ in range(25)]
+#     return "|".join(things)
+
+# items = [
+#     gen_thing() for _ in range(20_000_000)
+# ]
+# # with open(Path.cwd() / "results" / result_file, "r") as file:
+# # write_to_file(items, "results")
+
+# # with open(filepath, "wb") as f:
+# result_file = f"results_{int(time.time() * 1e3)}"
+# with open(Path.cwd() / "results" / result_file, "wb") as file:
+#     for item in items:
+#         # Write as 25 signed 32-bit integers
+#         file.write(struct.pack("25i", *[int(x) for x in item.split("|")]))
