@@ -3,9 +3,9 @@
 A novel board game that addresses issues prominent in many games, but particularly classical games, such as chess and go.
 
 ## Origin Story
-Something about [chess](https://en.wikipedia.org/wiki/Chess) never felt quite right to me. It's perhaps the most popular board game to ever exist. It's tauted as intellectual sparring and revered for all the possibilities and complex gameplay. However, it greatly rewards memorization and studying. It's impossible to get far without learning the openning theory and new players are "punished" with opening traps. Particularly in the modern computer era it's all the more accessible to study various computer lines out 40 moves and curbstomp online players simply because one has memorized all the variations of a specific move sequence.
+Something about [chess](https://en.wikipedia.org/wiki/Chess) never felt quite right to me. It's perhaps the most popular board game to ever exist. It's tauted as intellectual sparring and revered for all the possibilities and complex gameplay. However, it greatly rewards memorization and studying. It's impossible to get far without learning the opening theory and new players are "punished" with early game traps. Particularly in the modern computer era it's all the more accessible to study various computer lines out 40 moves and curbstomp online players simply because one has memorized all the variations of a specific move sequence.
 
-Chess (and [go](https://en.wikipedia.org/wiki/Go_(game)) and other games - although I'll be primarily targeting the first two) has these pitfalls for two major reasons:
+Chess (and [go](https://en.wikipedia.org/wiki/Go_(game)) and other games - although I'll be primarily targeting the first two) have these pitfalls for two major reasons:
 
 1. The initial gameplay conditions/setup are always the same
 2. Despite numerous gameplay possibilities, most options are bad (ie. non-condusive to winning)
@@ -28,10 +28,10 @@ It's in the name, board game, board, boards are flat. Real life is 3D. Why isn't
 
 ## Woodshop vs Laptop
 
-The original board game idea probably came to me around 2015. Since then it's mostly been a random thought in my head that pops up about twice a year. I mull it over and then let it go. All this time though it had strictly been a physical wooden contraption that would bring this idea to life. This is important as it meant I came up with the game physics based on what I thought I could cut, drill, grind, etc. to achieve a physical object that could move the way I wanted. Unfortunately, laptops are much easier to come by than woodshops and with my newfound coding skills I thought why not give it a shot. Both coding up the game logic and counting the setup permutations to see if it's >10^120. 
+The original board game idea probably came to me around 2015. Since then it's mostly been a random thought in my head that pops up about twice a year. All this time though it had strictly been a physical wooden contraption that would bring this idea to life. This is important as it meant I came up with the game physics based on what I thought I could cut, drill, etc. to achieve a physical object that could move the way I wanted. Unfortunately, laptops are much easier to come by than woodshops and with my coding skills I thought why not give it a shot. Both coding up the game logic and counting the setup permutations to see if it's >10^120. 
 
 ## Board Physics
-The board game is 10 by 10 square grid. Each square can move a maximum of 2 units relative to it's neighbors (up, down, left, right - **not** diagonals). The unit of height could be marked by a notch on the individual blocks representing that make up the gameplay squares. If I've already lost you just scroll down to the [Wood Version](#wood-version) section for a visual aid.   
+The board game is 10 by 10 square grid. Each square can move a maximum of 2 units relative to it's neighboring adjacent squares (up, down, left, right - **not** diagonals). The unit of height could be marked by a notch on the individual blocks representing that make up the gameplay squares. If I've already lost you just scroll down to the [Wood Version](#wood-version) section for a visual aid.   
 
 
 A wooden version would need to be enclosed by a thin wall to contain all the blocks. Now that I've 3D printed this board with a different interlocking mechanism, or for a virtual version, the border is not necessary. This leads to different numbers of permutations depending on whether or not there is a border.
@@ -56,10 +56,10 @@ Now it might help to start visualizing a birds eye view of the board with each s
  If we imagine the board like this with x and y as indices the neighbor condition can be written as:
 
 <pre>
-abs(board[x, y] - board[x-1, y]) <= 2
-abs(board[x, y] - board[x+1, y]) <= 2
-abs(board[x, y] - board[x, y-1]) <= 2
-abs(board[x, y] - board[x, y+1]) <= 2
+abs(board[x, y] - board[x - 1, y]) <= 2
+abs(board[x, y] - board[x + 1, y]) <= 2
+abs(board[x, y] - board[x, y - 1]) <= 2
+abs(board[x, y] - board[x, y + 1]) <= 2
 </pre>
 
 Now with these constraints and the border boundary condition we would like to randomize the board to get something that looks like this:
@@ -146,7 +146,45 @@ The tree for a 2x2 board is shown below and confirms the number of combinations 
 
 ![](https://github.com/darkfireXXI/Board_game/blob/images/tree.jpg)
 
-## Permutation Proof
+## Permutation Theory
+
+As it is resource intensive to brute force count all the permutations, I made an exploration into the theory to check if I was on track. Each square of the board can be considered to start at height 0 and have the ability to move to heights -2, -1, 0, 1, and 2. This gives each square 5 possible heights. As a back of the envelope calculation we can estimate the number of permutations for a 10x10 board as 5^(10 * 10) = 7.888 * 10^69. This can be our upper bound as to how many permutations exists. This overcounts the actual number because one of our constraints is that adjacent blocks cannot differ in height by more than 2, so this solution includes permutations where on block is at -2 and it's neighbor is at 2, which would be invalid. Not to mention, for the board with a border that creates a boundary condition that further limits permutations and we would like to not include duplicates that can be made via adding a constant to the height of every square or rotating the board 90°.
+
+When trying to find a generalizable analytical solution to this problem, these constraints make the problem very difficult. I thus decided to try counting permutation including repeats without a border as to get a sense of how fast the number of permutations grows based on different board dimensions. To be more comprehensive here we can include non-square boards as well to get more data points. Even so an analytical solution remains elusive as the permutations at any given square depend on the permutations of the preceding one, which lends itself to a more recursive calculation than a simple formula that takes the board size as input.
+
+Therefore we are back to calculating the permutations by brute force with c++, which gives these results:
+
+#### Permutation Array No Border Non-Unique
+
+| Rows x Cols | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **1** | 1 | 5 | 25 | 125 | 625 | 3,125 | 15,625 | 78,125 | 390,625 | 1,953,125 |
+| **2** | 5 | 85 | 1,459 | 25,061 | 430,491 | 7,394,885 | ? | ? | ? | ? |
+| **3** | 25 | 1,459 | 87,825 | 5,305,715 | ? | ? | ? | ? | ? | ? |
+| **4** | 125 | 25,061 | 5,305,715 | ? | ? | ? | ? | ? | ? | ? |
+| **5** | 625 | 430,491 | ? | ? | ? | ? | ? | ? | ? | ? |
+| **6** | 3,125 | 7,394,885 | ? | ? | ? | ? | ? | ? | ? | ? |
+| **7** | 15,625 | ? | ? | ? | ? | ? | ? | ? | ? | ? |
+| **8** | 78,125 | ? | ? | ? | ? | ? | ? | ? | ? | ? |
+| **9** | 390,625 | ? | ? | ? | ? | ? | ? | ? | ? | ? |
+| **10** | 1,953,125 | ? | ? | ? | ? | ? | ? | ? | ? | ? |
+
+#### Permutation Array With Border Non-Unique
+
+| Rows x Cols | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **1** | 1 | 5 | 19 | 65 | 211 | 665 | 2,059 | 6,305 | 19,171 | 58,025 |
+| **2** | 5 | 65 | 665 | 6,305 | 58,025 | 527,345 | 4,766,585 | 42,981,185 | ? | ? |
+| **3** | 19 | 665 | 20,276 | 602,616 | 17,731,722 | ? | ? | ? | ? | ? |
+| **4** | 65 | 6,305 | 602,616 | ? | ? | ? | ? | ? | ? | ? |
+| **5** | 211 | 58,025 | 17,731,722 | ? | ? | ? | ? | ? | ? | ? |
+| **6** | 665 | 527,345 | ? | ? | ? | ? | ? | ? | ? | ? |
+| **7** | 2,059 | 4,766,585 | ? | ? | ? | ? | ? | ? | ? | ? |
+| **8** | 6,305 | 42,981,185 | ? | ? | ? | ? | ? | ? | ? | ? |
+| **9** | 19,171 | ? | ? | ? | ? | ? | ? | ? | ? | ? |
+| **10** | 58,025 | ? | ? | ? | ? | ? | ? | ? | ? | ? |
+
+
 
 ## Permutations
 
@@ -165,19 +203,6 @@ If these numbers seem too big for boards this small good! I'm skeptical myself a
 Another script extrapolates the current results to estimate the 10x10 board will have on the order of 10^24 permutations. Unfortunately that's tracking to be less than the Shannon number, [but is on par with the estimated number of setup permutations of Catan](https://www.reddit.com/r/Catan/comments/9uh2be/how_many_different_map_combinations_on_a_standard/). Regardless, the real objective is a board game where you will likely never play the same starting conditions twice, thus reducing the value of memorizing standard opening practices.
 
 ![](https://github.com/darkfireXXI/Board_game/blob/images/extrapolation.jpg)
-
-| Rows x Cols | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **1** | 1 | 5 | 25 | 125 | 625 | 3,125 | 15,625 | 78,125 | 390,625 | 1,953,125 |
-| **2** | 5 | 85 | 1,459 | 25,061 | 430,491 | 7,394,885 | - | - | - | - |
-| **3** | 25 | 1,459 | 87,825 | 5,305,715 | - | - | - | - | - | - |
-| **4** | 125 | 25,061 | 5,305,715 | ? | - | - | - | - | - | - |
-| **5** | 625 | 430,491 | ? | ? | ? | - | - | - | - | - |
-| **6** | 3,125 | 7,394,885 | ? | ? | ? | ? | - | - | - | - |
-| **7** | 15,625 | ? | ? | ? | ? | ? | ? | - | - | - |
-| **8** | 78,125 | ? | ? | ? | ? | ? | ? | ? | - | - |
-| **9** | 390,625 | ? | ? | ? | ? | ? | ? | ? | ? | - |
-| **10** | 1,953,125 | ? | ? | ? | ? | ? | ? | ? | ? | ? |
 
 ### Video Game Version
 Seeing as I didn't have access to a wood shop, but my computer runs python I began coding the game. Creating a matrix for the board and then using it to make a 3D plot was very straightforward, but randomizing the board was a fun challenge. Furthermore, I didn't want it to be absolutely random, but random within a user defined window. The best way to understand this is to look at the terminal interface to get a sense of the game start up:

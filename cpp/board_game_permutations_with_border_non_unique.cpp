@@ -5,13 +5,23 @@ zero_board(const Board& board)
 {
   int rs = int(board.size());
   int cs = int(board[0].size());
+  int min_edge = std::numeric_limits<int>::max();
 
-  int first_square = board[0][0];
+  // find min of all edge values (top, bottom, left, right)
+  for (int r = 0; r < rs; ++r) {
+    min_edge = std::min(min_edge, board[r][0]);
+    min_edge = std::min(min_edge, board[r][cs - 1]);
+  }
+  for (int c = 0; c < cs; ++c) {
+    min_edge = std::min(min_edge, board[0][c]);
+    min_edge = std::min(min_edge, board[rs - 1][c]);
+  }
 
+  // create a new board with values subtracted
   Board zeroed_board(board);
   for (int r = 0; r < rs; ++r) {
     for (int c = 0; c < cs; ++c) {
-      zeroed_board[r][c] -= first_square;
+      zeroed_board[r][c] -= min_edge;
     }
   }
 
