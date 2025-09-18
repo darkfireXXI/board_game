@@ -226,8 +226,8 @@ main(int argc, char* argv[])
   fs::create_directory("new_increments");
   fs::create_directory("results");
 
-  int CHUNK_SIZE = 1'000;
-  int MAX_IN_MEM = 1'000;
+  int CHUNK_SIZE = 10'000;
+  int MAX_IN_MEM = 20'000'000;
 
   Board initial_board = generate_initial_board(size);
   Board dropped_board = drop_board(initial_board);
