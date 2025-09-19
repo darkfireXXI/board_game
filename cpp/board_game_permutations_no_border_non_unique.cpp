@@ -246,8 +246,8 @@ main(int argc, char* argv[])
     increment_files.push_back(filename);
   }
 
-  int CHUNK_SIZE = 5'000;
-  int MAX_IN_MEM = 1'000'000;
+  int CHUNK_SIZE = 25'000;
+  int MAX_IN_MEM = 20'000'000;
 
   long long start = get_current_time_ms();
 
@@ -308,8 +308,8 @@ main(int argc, char* argv[])
             check_results_vs_files(
               result_files, results_lists, n_jobs, MAX_IN_MEM);
 
-          is_new_checks = check_results_vs_results(
-            results_lists, is_new_checks, results, n_jobs);
+          // is_new_checks = check_results_vs_results(
+          //   results_lists, is_new_checks, results, n_jobs);
 
           for (size_t nj = 0; nj < n_jobs; ++nj) {
             for (size_t j = 0; j < results_lists[nj].size(); ++j) {
