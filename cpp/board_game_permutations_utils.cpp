@@ -216,13 +216,13 @@ check_results_vs_files(
     std::string buffer(file_size, '\0');
     file.read(&buffer[0], file_size);
 
+    std::string temp_line;
     size_t start_buffer = 0;
     for (size_t i = 0; i < buffer.size(); ++i) {
       if (buffer[i] == '\n') {
         size_t len = i - start_buffer;
-        std::string_view line(&buffer[start_buffer], len);
-        temp_results.insert(std::string(line));
-
+        temp_line.assign(&buffer[start_buffer], len);
+        temp_results.insert(temp_line);
         start_buffer = i + 1;
       }
     }

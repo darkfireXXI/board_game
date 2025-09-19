@@ -246,8 +246,8 @@ main(int argc, char* argv[])
     increment_files.push_back(filename);
   }
 
-  int CHUNK_SIZE = 1'000;
-  int MAX_IN_MEM = 1'000;
+  int CHUNK_SIZE = 5'000;
+  int MAX_IN_MEM = 1'000'000;
 
   long long start = get_current_time_ms();
 
@@ -267,14 +267,14 @@ main(int argc, char* argv[])
         std::string buffer(file_size, '\0');
         file.read(&buffer[0], file_size);
 
+        std::string temp_line;
         size_t start_buffer = 0;
         for (size_t i = 0; i < buffer.size(); ++i) {
           if (buffer[i] == '\n') {
             size_t len = i - start_buffer;
-            std::string_view line(&buffer[start_buffer], len);
-            increments.push_back(rectangular_board_hash_to_array(
-              std::string(line), rows, columns));
-
+            temp_line.assign(&buffer[start_buffer], len);
+            increments.push_back(
+              rectangular_board_hash_to_array(temp_line, rows, columns));
             start_buffer = i + 1;
           }
         }
@@ -307,6 +307,9 @@ main(int argc, char* argv[])
           std::vector<std::vector<uint8_t>> is_new_checks =
             check_results_vs_files(
               result_files, results_lists, n_jobs, MAX_IN_MEM);
+
+          is_new_checks = check_results_vs_results(
+            results_lists, is_new_checks, results, n_jobs);
 
           for (size_t nj = 0; nj < n_jobs; ++nj) {
             for (size_t j = 0; j < results_lists[nj].size(); ++j) {

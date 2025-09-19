@@ -129,13 +129,11 @@ check_board_is_new_combo(Board board,
 }
 
 std::unordered_map<std::string, Board>
-generate_all_board_increments(Board input_board)
+generate_all_board_increments(Board board)
 {
-  int size = input_board.size();
+  int size = board.size();
   std::unordered_set<std::string> board_hashes;
   std::unordered_map<std::string, Board> board_increments;
-
-  Board board = input_board;
 
   for (int r = 0; r < size; ++r) {
     for (int c = 0; c < size; ++c) {
@@ -223,8 +221,8 @@ main(int argc, char* argv[])
   fs::create_directory("new_increments");
   fs::create_directory("results");
 
-  int CHUNK_SIZE = 1'000;
-  int MAX_IN_MEM = 1'000;
+  int CHUNK_SIZE = 5'000;
+  int MAX_IN_MEM = 1'000'000;
 
   Board initial_board = generate_initial_board(size);
   Board dropped_board = drop_board(initial_board);
@@ -274,13 +272,13 @@ main(int argc, char* argv[])
         std::string buffer(file_size, '\0');
         file.read(&buffer[0], file_size);
 
+        std::string temp_line;
         size_t start_buffer = 0;
         for (size_t i = 0; i < buffer.size(); ++i) {
           if (buffer[i] == '\n') {
             size_t len = i - start_buffer;
-            std::string_view line(&buffer[start_buffer], len);
-            increments.push_back(board_hash_to_array(std::string(line), size));
-
+            temp_line.assign(&buffer[start_buffer], len);
+            increments.push_back(board_hash_to_array(temp_line, size));
             start_buffer = i + 1;
           }
         }
@@ -311,6 +309,9 @@ main(int argc, char* argv[])
           std::vector<std::vector<uint8_t>> is_new_checks =
             check_results_vs_files(
               result_files, results_lists, n_jobs, MAX_IN_MEM);
+
+          is_new_checks = check_results_vs_results(
+            results_lists, is_new_checks, results, n_jobs);
 
           for (size_t nj = 0; nj < n_jobs; ++nj) {
             for (size_t j = 0; j < results_lists[nj].size(); ++j) {
