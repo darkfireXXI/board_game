@@ -122,7 +122,6 @@ rectangular_board_hash_to_array(const std::string& board_hash_str,
 
   Board board =
     Board(std::vector<std::vector<int>>(rows, std::vector<int>(columns, 0)));
-  std::cout << rows << " " << columns << "\n";
   for (int i = 0; i < rows * columns; ++i) {
     int row = i / columns;
     int col = i % columns;
