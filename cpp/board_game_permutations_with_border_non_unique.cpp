@@ -221,14 +221,13 @@ main(int argc, char* argv[])
   fs::create_directory("results");
 
   int CHUNK_SIZE = 10'000;
-  int MAX_IN_MEM = 20'000'000;
+  int MAX_IN_MEM = 1'000'000;
 
   Board initial_board =
     Board(std::vector<std::vector<int>>(rows, std::vector<int>(columns, 0)));
   Board dropped_board = drop_board(initial_board);
   int rounds = calculate_rounds(dropped_board, false);
-  std::cout << rounds << " rounds for a " << rows << "x" << columns
-            << " board\n";
+  std::cout << rounds << " rounds for a " << rows << "x" << columns << " board\n";
 
   Board zeroed_board = zero_board(dropped_board);
   std::unordered_set<std::string> results = { hash_rectangular_board(
@@ -295,8 +294,7 @@ main(int argc, char* argv[])
           std::vector<std::vector<Board>> split_increments =
             split_list(chunk, n_jobs);
 
-          std::vector<std::future<std::vector<std::pair<Board,
-          std::string>>>>
+          std::vector<std::future<std::vector<std::pair<Board, std::string>>>>
             calc_futures;
           calc_futures.reserve(n_jobs);
           for (const std::vector<Board>& split : split_increments) {
@@ -304,15 +302,17 @@ main(int argc, char* argv[])
               std::async(std::launch::async, generate_boards_mp, split));
           }
 
-          std::vector<std::vector<std::pair<Board, std::string>>>
-          results_lists; results_lists.reserve(n_jobs); for (auto&
-          calc_future : calc_futures) {
+          std::vector<std::vector<std::pair<Board, std::string>>> results_lists;
+          results_lists.reserve(n_jobs);
+          for (auto& calc_future : calc_futures) {
             results_lists.push_back(calc_future.get());
           }
 
           std::vector<std::vector<uint8_t>> is_new_checks =
             check_results_vs_files(
               result_files, results_lists, n_jobs, MAX_IN_MEM);
+
+          // is_new_checks = check_results_vs_results(results_lists, is_new_checks, results, n_jobs);
 
           for (size_t nj = 0; nj < n_jobs; ++nj) {
             for (size_t j = 0; j < results_lists[nj].size(); ++j) {
@@ -352,7 +352,7 @@ main(int argc, char* argv[])
           // dump excess new increments to txt file
           if (new_increments.size() >= MAX_IN_MEM) {
             std::string filename =
-              write_to_file(new_increments, "new_increments");
+              write_to_file(new_increments, "new_increments", false);
             new_increments.clear();
             new_increments.reserve(MAX_IN_MEM);
             new_increment_files.push_back(filename);
@@ -361,7 +361,8 @@ main(int argc, char* argv[])
       }
 
       if (new_increments.size() > 0) {
-        std::string filename = write_to_file(new_increments, "new_increments");
+        std::string filename =
+          write_to_file(new_increments, "new_increments", false);
         new_increments.clear();
         new_increments.reserve(MAX_IN_MEM);
         new_increment_files.push_back(filename);
@@ -417,5 +418,6 @@ main(int argc, char* argv[])
   std::cout << std::endl;
 
   int result_count = get_file_item_count(result_files, "results");
-  std::cout << (result_count + results.size()) << " total unique boards found"; std::cout << std::endl;
+  std::cout << (result_count + results.size()) << " total unique boards found";
+  std::cout << std::endl;
 }

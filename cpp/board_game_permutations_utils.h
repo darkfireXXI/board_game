@@ -50,7 +50,8 @@ write_to_file(const std::unordered_set<std::string>& results,
 
 std::string
 write_to_file(const std::vector<Board>& new_increments,
-              const std::string& folder_name, bool square = false);
+              const std::string& folder_name,
+              bool square = true);
 
 std::vector<std::vector<uint8_t>>
 check_results_vs_files(
@@ -59,10 +60,17 @@ check_results_vs_files(
   const int& n_jobs,
   const long long& max_in_mem);
 
+std::vector<std::vector<uint8_t>>
+check_results_vs_results(
+  const std::vector<std::vector<std::pair<Board, std::string>>>& results_lists,
+  std::vector<std::vector<uint8_t>>& is_new_checks,
+  const std::unordered_set<std::string>& results,
+  const int& n_jobs);
+
 std::vector<uint8_t>
-check_results_vs_file_mp(
+check_results_vs_mp(
   const std::vector<std::pair<Board, std::string>>& results_list,
-  std::vector<uint8_t> is_new_check,
+  std::vector<uint8_t>& is_new_check,
   const std::unordered_set<std::string>& temp_results);
 
 long long

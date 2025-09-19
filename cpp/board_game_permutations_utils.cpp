@@ -172,7 +172,8 @@ write_to_file(const std::unordered_set<std::string>& results,
 
 std::string
 write_to_file(const std::vector<Board>& new_increments,
-              const std::string& folder_name, bool square)
+              const std::string& folder_name,
+              bool square)
 {
   std::string filename =
     folder_name + "_" + std::to_string(get_current_time_ms()) + ".txt";
@@ -230,7 +231,7 @@ check_results_vs_files(
     check_futures.reserve(n_jobs);
     for (size_t nj = 0; nj < n_jobs; ++nj) {
       check_futures.push_back(std::async(std::launch::async,
-                                         check_results_vs_file_mp,
+                                         check_results_vs_mp,
                                          std::cref(results_lists[nj]),
                                          std::ref(is_new_checks[nj]),
                                          std::cref(temp_results)));
@@ -244,16 +245,40 @@ check_results_vs_files(
   return is_new_checks;
 }
 
+std::vector<std::vector<uint8_t>>
+check_results_vs_results(
+  const std::vector<std::vector<std::pair<Board, std::string>>>& results_lists,
+  std::vector<std::vector<uint8_t>>& is_new_checks,
+  const std::unordered_set<std::string>& results,
+  const int& n_jobs)
+{
+  std::vector<std::future<std::vector<uint8_t>>> check_futures;
+  check_futures.reserve(n_jobs);
+  for (size_t nj = 0; nj < n_jobs; ++nj) {
+    check_futures.push_back(std::async(std::launch::async,
+                                       check_results_vs_mp,
+                                       std::cref(results_lists[nj]),
+                                       std::ref(is_new_checks[nj]),
+                                       std::cref(results)));
+  }
+
+  for (size_t nj = 0; nj < n_jobs; ++nj) {
+    is_new_checks[nj] = check_futures[nj].get();
+  }
+
+  return is_new_checks;
+}
+
 std::vector<uint8_t>
-check_results_vs_file_mp(
+check_results_vs_mp(
   const std::vector<std::pair<Board, std::string>>& results_list,
-  std::vector<uint8_t> is_new_check,
-  const std::unordered_set<std::string>& temp_results)
+  std::vector<uint8_t>& is_new_check,
+  const std::unordered_set<std::string>& results)
 {
   for (size_t i = 0; i < results_list.size(); ++i) {
     if (is_new_check[i]) {
       const std::string& board_hash = results_list[i].second;
-      if (temp_results.count(board_hash) > 0) {
+      if (results.count(board_hash) > 0) {
         is_new_check[i] = 0;
       }
     }

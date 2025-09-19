@@ -115,8 +115,8 @@ generate_all_board_increments(Board input_board,
                               const int& board_min,
                               const int& board_max)
 {
-  int rs = static_cast<int>(input_board.size());
-  int cs = static_cast<int>(input_board[0].size());
+  int rs = input_board.size();
+  int cs = input_board[0].size();
   std::unordered_set<std::string> board_hashes;
   std::unordered_map<std::string, Board> board_increments;
 
@@ -223,7 +223,8 @@ main(int argc, char* argv[])
             << " board\n";
 
   Board zeroed_board = zero_board(initial_board);
-  std::unordered_set<std::string> results = { hash_board(zeroed_board) };
+  std::unordered_set<std::string> results = { hash_rectangular_board(
+    zeroed_board) };
   std::vector<std::string> result_files;
   std::vector<Board> last_round_increments = { zeroed_board };
   std::vector<Board> new_increments;
@@ -238,7 +239,7 @@ main(int argc, char* argv[])
 
     std::ofstream file(full_path);
     for (const Board& increment : last_round_increments) {
-      file << hash_board(increment) << "\n";
+      file << hash_rectangular_board(increment) << "\n";
     }
 
     file.close();
@@ -343,7 +344,7 @@ main(int argc, char* argv[])
           // dump excess new increments to txt file
           if (new_increments.size() >= MAX_IN_MEM) {
             std::string filename =
-              write_to_file(new_increments, "new_increments");
+              write_to_file(new_increments, "new_increments", false);
             new_increments.clear();
             new_increment_files.push_back(filename);
           }
@@ -351,7 +352,8 @@ main(int argc, char* argv[])
       }
 
       if (new_increments.size() > 0) {
-        std::string filename = write_to_file(new_increments, "new_increments");
+        std::string filename =
+          write_to_file(new_increments, "new_increments", false);
         new_increments.clear();
         new_increment_files.push_back(filename);
       }
