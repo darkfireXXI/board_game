@@ -230,10 +230,11 @@ check_results_vs_files(
     std::vector<std::future<std::vector<uint8_t>>> check_futures;
     check_futures.reserve(n_jobs);
     for (size_t nj = 0; nj < n_jobs; ++nj) {
+      std::vector<uint8_t> is_new_check_copy = is_new_checks[nj];
       check_futures.push_back(std::async(std::launch::async,
                                          check_results_vs_mp,
                                          std::cref(results_lists[nj]),
-                                         std::ref(is_new_checks[nj]),
+                                         std::move(is_new_check_copy),
                                          std::cref(temp_results)));
     }
 
@@ -255,10 +256,11 @@ check_results_vs_results(
   std::vector<std::future<std::vector<uint8_t>>> check_futures;
   check_futures.reserve(n_jobs);
   for (size_t nj = 0; nj < n_jobs; ++nj) {
+    std::vector<uint8_t> is_new_check_copy = is_new_checks[nj];
     check_futures.push_back(std::async(std::launch::async,
                                        check_results_vs_mp,
                                        std::cref(results_lists[nj]),
-                                       std::ref(is_new_checks[nj]),
+                                       std::move(is_new_check_copy),
                                        std::cref(results)));
   }
 
@@ -272,7 +274,7 @@ check_results_vs_results(
 std::vector<uint8_t>
 check_results_vs_mp(
   const std::vector<std::pair<Board, std::string>>& results_list,
-  std::vector<uint8_t>& is_new_check,
+  std::vector<uint8_t> is_new_check,
   const std::unordered_set<std::string>& results)
 {
   for (size_t i = 0; i < results_list.size(); ++i) {

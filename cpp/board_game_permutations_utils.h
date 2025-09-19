@@ -70,7 +70,7 @@ check_results_vs_results(
 std::vector<uint8_t>
 check_results_vs_mp(
   const std::vector<std::pair<Board, std::string>>& results_list,
-  std::vector<uint8_t>& is_new_check,
+  std::vector<uint8_t> is_new_check,
   const std::unordered_set<std::string>& temp_results);
 
 long long
