@@ -197,7 +197,7 @@ generate_boards_mp(const std::vector<Board>& split_increments)
       new_boards.emplace_back(board_increment, hash);
     }
   }
-  std::cout << new_boards.size() << " new boards found" << "\n";
+
   return new_boards;
 }
 
@@ -220,8 +220,8 @@ main(int argc, char* argv[])
   fs::create_directory("new_increments");
   fs::create_directory("results");
 
-  int CHUNK_SIZE = 1'000;
-  int MAX_IN_MEM = 1'000;
+  int CHUNK_SIZE = 10'000;
+  int MAX_IN_MEM = 20'000'000;
 
   Board initial_board =
     Board(std::vector<std::vector<int>>(rows, std::vector<int>(columns, 0)));
@@ -284,10 +284,6 @@ main(int argc, char* argv[])
 
             start_buffer = i + 1;
           }
-        }
-
-        for (Board ib : increments) {
-          print_board(ib);
         }
 
         for (size_t i = 0; i < increments.size(); i += CHUNK_SIZE * n_jobs) {
