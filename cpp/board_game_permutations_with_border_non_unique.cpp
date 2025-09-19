@@ -136,7 +136,6 @@ generate_all_board_increments(Board input_board)
   std::unordered_map<std::string, Board> board_increments;
 
   Board board = input_board;
-  std::cout << "start mp" << "\n";
 
   for (int r = 0; r < rs; ++r) {
     for (int c = 0; c < cs; ++c) {
@@ -176,7 +175,6 @@ generate_all_board_increments(Board input_board)
       board[r][c] -= 1;
     }
   }
-  std::cout << "finish mp" << "\n";
 
   return board_increments;
 }
@@ -243,32 +241,6 @@ main(int argc, char* argv[])
   std::vector<std::string> increment_files;
   std::vector<std::string> new_increment_files;
 
-  // print_board(initial_board);
-
-  // int counter = 0;
-  // for (int r = 0; r < rows; ++r) {
-  //   for (int c = 0; c < columns; ++c) {
-  //     counter++;
-  //     initial_board[r][c] = counter;
-  //   }
-  // }
-
-  // print_board(initial_board);
-
-  // std::string hash = hash_rectangular_board(initial_board);
-  // std::cout << hash << "\n";
-  // std::cout << rows << " " << columns << "\n";
-  // Board ar = rectangular_board_hash_to_array(hash, rows, columns);
-  // // std::cout << hash << "\n";
-  // print_board(ar);
-
-  // initial_board[0][0] = 1
-  // initial_board[0][0] = 1
-  // initial_board[0][0] = 1
-  // initial_board[0][0] = 1
-  // initial_board[0][0] = 1
-  // initial_board[0][0] = 1
-
   if (n_jobs > 1) {
     long long now = get_current_time_ms();
 
@@ -277,8 +249,6 @@ main(int argc, char* argv[])
 
     std::ofstream file(full_path);
     for (const Board& increment : last_round_increments) {
-      std::cout << "idk" << "\n";
-      print_board(increment);
       file << hash_rectangular_board(increment) << "\n";
     }
 
@@ -304,8 +274,6 @@ main(int argc, char* argv[])
         std::string buffer(file_size, '\0');
         file.read(&buffer[0], file_size);
 
-        std::cout << "here" << '\n';
-
         size_t start_buffer = 0;
         for (size_t i = 0; i < buffer.size(); ++i) {
           if (buffer[i] == '\n') {
@@ -317,8 +285,6 @@ main(int argc, char* argv[])
             start_buffer = i + 1;
           }
         }
-
-        std::cout << "done" << increments.size() << '\n';
 
         for (Board ib : increments) {
           print_board(ib);
@@ -358,8 +324,6 @@ main(int argc, char* argv[])
                 const auto& [board_increment, board_hash] =
                   results_lists[nj][j];
                 if (results.count(board_hash) == 0) {
-                  std::cout << "new result" << "\n";
-                  print_board(board_increment);
                   results.insert(board_hash);
                   new_increments.push_back(board_increment);
                 }
@@ -415,11 +379,6 @@ main(int argc, char* argv[])
         Board last_round_new_increment = last_round_increments[i];
         std::unordered_map<std::string, Board> board_increments =
           generate_all_board_increments(last_round_new_increment);
-
-        std::cout << board_increments.size() << " this many" << "\n";
-        // for (Board ib : board_increments) {
-        print_board(last_round_new_increment);
-        // }
 
         for (std::unordered_map<std::string, Board>::iterator it =
                board_increments.begin();
