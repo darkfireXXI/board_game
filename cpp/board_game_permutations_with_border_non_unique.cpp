@@ -221,7 +221,7 @@ main(int argc, char* argv[])
   fs::create_directory("results");
 
   int CHUNK_SIZE = 10'000;
-  int MAX_IN_MEM = 1'000'000;
+  int MAX_IN_MEM = 20'000'000;
 
   Board initial_board =
     Board(std::vector<std::vector<int>>(rows, std::vector<int>(columns, 0)));
