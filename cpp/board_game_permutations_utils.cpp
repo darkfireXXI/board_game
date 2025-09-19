@@ -56,7 +56,7 @@ hash_board(const Board& board)
 {
   int size = board.size();
   std::string board_str;
-  board_str.reserve(board.size() * board.size() * 3);
+  board_str.reserve(size * size * 3);
 
   for (int r = 0; r < size; ++r) {
     for (int c = 0; c < size; ++c) {
@@ -87,7 +87,7 @@ hash_rectangular_board(const Board& board)
 }
 
 Board
-board_hash_to_array(const std::string& board_hash_str, int size)
+board_hash_to_array(const std::string& board_hash_str, const int& size)
 {
   std::vector<int> flat_values;
   std::stringstream ss(board_hash_str);
@@ -101,6 +101,31 @@ board_hash_to_array(const std::string& board_hash_str, int size)
   for (int i = 0; i < size * size; ++i) {
     int row = i / size;
     int col = i % size;
+    board[row][col] = flat_values[i];
+  }
+
+  return board;
+}
+
+Board
+rectangular_board_hash_to_array(const std::string& board_hash_str,
+                                const int& rows,
+                                const int& columns)
+{
+  std::vector<int> flat_values;
+  std::stringstream ss(board_hash_str);
+  std::string token;
+
+  while (std::getline(ss, token, '|')) {
+    flat_values.push_back(std::stoi(token));
+  }
+
+  Board board =
+    Board(std::vector<std::vector<int>>(rows, std::vector<int>(columns, 0)));
+  std::cout << rows << " " << columns << "\n";
+  for (int i = 0; i < rows * columns; ++i) {
+    int row = i / columns;
+    int col = i % columns;
     board[row][col] = flat_values[i];
   }
 
@@ -148,7 +173,7 @@ write_to_file(const std::unordered_set<std::string>& results,
 
 std::string
 write_to_file(const std::vector<Board>& new_increments,
-              const std::string& folder_name)
+              const std::string& folder_name, bool square)
 {
   std::string filename =
     folder_name + "_" + std::to_string(get_current_time_ms()) + ".txt";
@@ -156,7 +181,11 @@ write_to_file(const std::vector<Board>& new_increments,
 
   std::ofstream file(filepath);
   for (const Board& new_increment : new_increments) {
-    file << hash_board(new_increment) << "\n";
+    if (square) {
+      file << hash_board(new_increment) << "\n";
+    } else {
+      file << hash_rectangular_board(new_increment) << "\n";
+    }
   }
 
   return filename;
@@ -224,8 +253,8 @@ check_results_vs_file_mp(
 {
   for (size_t i = 0; i < results_list.size(); ++i) {
     if (is_new_check[i]) {
-      const std::string& min_board_hash = results_list[i].second;
-      if (temp_results.count(min_board_hash) > 0) {
+      const std::string& board_hash = results_list[i].second;
+      if (temp_results.count(board_hash) > 0) {
         is_new_check[i] = 0;
       }
     }

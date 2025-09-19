@@ -1,4 +1,3 @@
-#include <chrono>
 #include <thread>
 
 #include "board_game_permutations_utils.h"
@@ -13,10 +12,8 @@ zero_board(const Board& board)
   for (size_t i = 0; i < size; ++i) {
     min_edge = std::min(min_edge, board[0][i]);
     min_edge = std::min(min_edge, board[size - 1][i]);
-    if (i > 0 && i < size - 1) {
-      min_edge = std::min(min_edge, board[i][0]);
-      min_edge = std::min(min_edge, board[i][size - 1]);
-    }
+    min_edge = std::min(min_edge, board[i][0]);
+    min_edge = std::min(min_edge, board[i][size - 1]);
   }
 
   // create a new board with values subtracted
@@ -226,14 +223,13 @@ main(int argc, char* argv[])
   fs::create_directory("new_increments");
   fs::create_directory("results");
 
-  int CHUNK_SIZE = 10'000;
-  int MAX_IN_MEM = 20'000'000;
+  int CHUNK_SIZE = 1'000;
+  int MAX_IN_MEM = 1'000;
 
   Board initial_board = generate_initial_board(size);
   Board dropped_board = drop_board(initial_board);
   int rounds = calculate_rounds(dropped_board, false);
   std::cout << rounds << " rounds for a " << size << "x" << size << " board\n";
-  std::cout << "jobs = " << n_jobs << "\n";
 
   Board zeroed_board = zero_board(dropped_board);
   std::unordered_set<std::string> results = { hash_board(zeroed_board) };

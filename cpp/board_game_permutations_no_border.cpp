@@ -1,3 +1,5 @@
+#include <thread>
+
 #include "board_game_permutations_utils.h"
 
 Board
@@ -258,8 +260,8 @@ main(int argc, char* argv[])
     increment_files.push_back(filename);
   }
 
-  int CHUNK_SIZE = 10'000;
-  int MAX_IN_MEM = 20'000'000;
+  int CHUNK_SIZE = 1'000;
+  int MAX_IN_MEM = 1'000;
 
   long long start = get_current_time_ms();
 
@@ -350,6 +352,8 @@ main(int argc, char* argv[])
             }
 
             result_files.push_back(filename);
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
           }
 
           // dump excess new increments to txt file
@@ -400,7 +404,6 @@ main(int argc, char* argv[])
     long long result_count = get_file_item_count(result_files, "results");
     result_count += results.size();
 
-    std::time_t now = std::time(nullptr);
     display_round_stats(
       round, rounds, start, round_start, new_board_count, result_count);
 

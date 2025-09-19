@@ -34,7 +34,12 @@ std::string
 hash_rectangular_board(const Board& board);
 
 Board
-board_hash_to_array(const std::string& board_hash_str, int size);
+board_hash_to_array(const std::string& board_hash_str, const int& size);
+
+Board
+rectangular_board_hash_to_array(const std::string& board_hash_str,
+                                const int& rows,
+                                const int& columns);
 
 std::vector<std::vector<Board>>
 split_list(const std::vector<Board>& list, int n);
@@ -45,7 +50,7 @@ write_to_file(const std::unordered_set<std::string>& results,
 
 std::string
 write_to_file(const std::vector<Board>& new_increments,
-              const std::string& folder_name);
+              const std::string& folder_name, bool square = false);
 
 std::vector<std::vector<uint8_t>>
 check_results_vs_files(
