@@ -1,203 +1,7 @@
-#include "board_game_permutations_utils.h"
+#include <thread>
 
-Board
-zero_board(const Board& board)
-{
-  int rs = int(board.size());
-  int cs = int(board[0].size());
-  int min_edge = std::numeric_limits<int>::max();
-
-  // find min of all edge values (top, bottom, left, right)
-  for (int r = 0; r < rs; ++r) {
-    min_edge = std::min(min_edge, board[r][0]);
-    min_edge = std::min(min_edge, board[r][cs - 1]);
-  }
-  for (int c = 0; c < cs; ++c) {
-    min_edge = std::min(min_edge, board[0][c]);
-    min_edge = std::min(min_edge, board[rs - 1][c]);
-  }
-
-  // create a new board with values subtracted
-  Board zeroed_board(board);
-  for (int r = 0; r < rs; ++r) {
-    for (int c = 0; c < cs; ++c) {
-      zeroed_board[r][c] -= min_edge;
-    }
-  }
-
-  return zeroed_board;
-}
-
-Board
-drop_board(Board board)
-{
-  int rs = int(board.size());
-  int cs = int(board[0].size());
-  int r_mid = rs / 2 - (rs % 2 == 0);
-  int c_mid = cs / 2 - (cs % 2 == 0);
-
-  for (int r = 0; r <= r_mid; ++r) {
-    for (int c = 0; c <= c_mid; ++c) {
-      int min_axis = std::min(r, c);
-      board[r][c] = (min_axis + 1) * -2;
-      board[rs - r - 1][c] = (min_axis + 1) * -2;
-      board[r][cs - c - 1] = (min_axis + 1) * -2;
-      board[rs - r - 1][cs - c - 1] = (min_axis + 1) * -2;
-    }
-  }
-
-  return board;
-}
-
-std::optional<Board>
-increment_board(Board board)
-{
-  int rs = int(board.size());
-  int cs = int(board[0].size());
-
-  for (int r = 0; r < rs; ++r) {
-    for (int c = 0; c < cs; ++c) {
-      board[r][c] += 1;
-
-      bool local_valid =
-        std::abs(board[std::max(0, r - 1)][c] - board[r][c]) <= 2 &&
-        std::abs(board[std::min(rs - 1, r + 1)][c] - board[r][c]) <= 2 &&
-        std::abs(board[r][std::max(0, c - 1)] - board[r][c]) <= 2 &&
-        std::abs(board[r][std::min(cs - 1, c + 1)] - board[r][c]) <= 2;
-
-      bool boundary_valid = true;
-      for (size_t r = 0; r < rs; ++r) {
-        if (board[r][0] > 2 || board[r][cs - 1] > 2) {
-          boundary_valid = false;
-          break;
-        }
-      }
-      for (size_t c = 0; c < cs; ++c) {
-        if (board[0][c] > 2 || board[rs - 1][c] > 2) {
-          boundary_valid = false;
-          break;
-        }
-      }
-
-      if (local_valid && boundary_valid) {
-        return board;
-      }
-
-      board[r][c] -= 1;
-    }
-  }
-
-  return std::nullopt;
-}
-
-int
-calculate_rounds(const Board& dropped_board, bool print_boards = false)
-{
-  Board board = dropped_board;
-  int rounds = 0;
-
-  while (true) {
-    std::optional<Board> result = increment_board(board);
-
-    ++rounds;
-
-    if (!result.has_value()) {
-      break;
-    }
-
-    board = result.value();
-
-    if (print_boards) {
-      print_board(board);
-    }
-  }
-
-  return rounds;
-}
-
-std::tuple<bool, std::string>
-check_board_is_new_combo(Board board,
-                         const std::unordered_set<std::string>& results)
-{
-  std::string hash = hash_rectangular_board(zero_board(board));
-  if (results.count(hash) > 0) {
-    return { false, "" };
-  }
-
-  return { true, hash };
-}
-
-std::unordered_map<std::string, Board>
-generate_all_board_increments(Board board)
-{
-  int rs = board.size();
-  int cs = board[0].size();
-  std::unordered_set<std::string> board_hashes;
-  std::unordered_map<std::string, Board> board_increments;
-
-  for (int r = 0; r < rs; ++r) {
-    for (int c = 0; c < cs; ++c) {
-      board[r][c] += 1;
-
-      const int val = board[r][c];
-
-      bool local_valid =
-        std::abs(board[std::max(0, r - 1)][c] - val) <= 2 &&
-        std::abs(board[std::min(rs - 1, r + 1)][c] - val) <= 2 &&
-        std::abs(board[r][std::max(0, c - 1)] - val) <= 2 &&
-        std::abs(board[r][std::min(cs - 1, c + 1)] - val) <= 2;
-
-      bool boundary_valid = true;
-      for (size_t r = 0; r < rs; ++r) {
-        if (board[r][0] > 2 || board[r][cs - 1] > 2) {
-          boundary_valid = false;
-          break;
-        }
-      }
-      for (size_t c = 0; c < cs; ++c) {
-        if (board[0][c] > 2 || board[rs - 1][c] > 2) {
-          boundary_valid = false;
-          break;
-        }
-      }
-
-      if (local_valid && boundary_valid) {
-        auto [is_new_combo, board_hash] =
-          check_board_is_new_combo(board, board_hashes);
-        if (is_new_combo) {
-          board_hashes.insert(board_hash);
-          board_increments[board_hash] = board;
-        }
-      }
-
-      board[r][c] -= 1;
-    }
-  }
-
-  return board_increments;
-}
-
-std::vector<std::pair<Board, std::string>>
-generate_boards_mp(const std::vector<Board>& split_increments)
-{
-  std::vector<std::pair<Board, std::string>> new_boards;
-  int rs = split_increments[0].size();
-  int cs = split_increments[0][0].size();
-  new_boards.reserve(split_increments.size() * rs * cs);
-
-  for (const Board& board : split_increments) {
-    std::unordered_map<std::string, Board> increments =
-      generate_all_board_increments(board);
-
-    for (const std::pair<const std::string, Board>& entry : increments) {
-      const Board& board_increment = entry.second;
-      std::string hash = hash_rectangular_board(zero_board(board_increment));
-      new_boards.emplace_back(board_increment, hash);
-    }
-  }
-
-  return new_boards;
-}
+#include "board_game_counting_utils.h"
+#include "board_game_with_border_utils.h"
 
 int
 main(int argc, char* argv[])
@@ -218,19 +22,15 @@ main(int argc, char* argv[])
   fs::create_directory("new_increments");
   fs::create_directory("results");
 
-  int CHUNK_SIZE = 25'000;
-  int MAX_IN_MEM = 20'000'000;
-
-  Board initial_board =
-    Board(std::vector<std::vector<int>>(rows, std::vector<int>(columns, 0)));
+  Board initial_board = generate_initial_board(rows, columns);
   Board dropped_board = drop_board(initial_board);
   int rounds = calculate_rounds(dropped_board, false);
   std::cout << rounds << " rounds for a " << rows << "x" << columns
             << " board\n";
+  print_board(dropped_board);
 
   Board zeroed_board = zero_board(dropped_board);
-  std::unordered_set<std::string> results = { hash_rectangular_board(
-    zeroed_board) };
+  std::unordered_set<std::string> results = { hash_board(zeroed_board) };
   results.reserve(MAX_IN_MEM);
   std::vector<std::string> result_files;
   std::vector<Board> last_round_increments = { dropped_board };
@@ -247,12 +47,15 @@ main(int argc, char* argv[])
 
     std::ofstream file(full_path);
     for (const Board& increment : last_round_increments) {
-      file << hash_rectangular_board(increment) << "\n";
+      file << hash_board(increment) << "\n";
     }
 
     file.close();
     increment_files.push_back(filename);
   }
+
+  int CHUNK_SIZE = 35'000;
+  int MAX_IN_MEM = 20'000'000;
 
   long long start = get_current_time_ms();
 
@@ -278,8 +81,7 @@ main(int argc, char* argv[])
           if (buffer[i] == '\n') {
             size_t len = i - start_buffer;
             temp_line.assign(&buffer[start_buffer], len);
-            increments.push_back(
-              rectangular_board_hash_to_array(temp_line, rows, columns));
+            increments.push_back(board_hash_to_array(temp_line, rows, columns));
             start_buffer = i + 1;
           }
         }
@@ -298,7 +100,7 @@ main(int argc, char* argv[])
           calc_futures.reserve(n_jobs);
           for (const std::vector<Board>& split : split_increments) {
             calc_futures.push_back(
-              std::async(std::launch::async, generate_boards_mp, split));
+              std::async(std::launch::async, generate_boards_mp_combo, split));
           }
 
           std::vector<std::vector<std::pair<Board, std::string>>> results_lists;
@@ -317,10 +119,10 @@ main(int argc, char* argv[])
           for (size_t nj = 0; nj < n_jobs; ++nj) {
             for (size_t j = 0; j < results_lists[nj].size(); ++j) {
               if (is_new_checks[nj][j]) {
-                const auto& [board_increment, board_hash] =
+                const auto& [board_increment, min_board_hash] =
                   results_lists[nj][j];
-                if (results.count(board_hash) == 0) {
-                  results.insert(board_hash);
+                if (results.count(min_board_hash) == 0) {
+                  results.insert(min_board_hash);
                   new_increments.push_back(board_increment);
                 }
               }
@@ -352,7 +154,7 @@ main(int argc, char* argv[])
           // dump excess new increments to txt file
           if (new_increments.size() >= MAX_IN_MEM) {
             std::string filename =
-              write_to_file(new_increments, "new_increments", false);
+              write_to_file(new_increments, "new_increments");
             new_increments.clear();
             new_increments.reserve(MAX_IN_MEM);
             new_increment_files.push_back(filename);
@@ -361,8 +163,7 @@ main(int argc, char* argv[])
       }
 
       if (new_increments.size() > 0) {
-        std::string filename =
-          write_to_file(new_increments, "new_increments", false);
+        std::string filename = write_to_file(new_increments, "new_increments");
         new_increments.clear();
         new_increments.reserve(MAX_IN_MEM);
         new_increment_files.push_back(filename);
@@ -375,18 +176,18 @@ main(int argc, char* argv[])
       for (std::size_t i = 0; i < last_round_increments.size(); ++i) {
         Board last_round_new_increment = last_round_increments[i];
         std::unordered_map<std::string, Board> board_increments =
-          generate_all_board_increments(last_round_new_increment);
+          generate_all_board_increments_combo(last_round_new_increment);
 
         for (std::unordered_map<std::string, Board>::iterator it =
                board_increments.begin();
              it != board_increments.end();
              ++it) {
           Board board_increment = it->second;
-          auto [is_new_combo, board_hash] =
+          auto [is_new_combo, min_board_hash] =
             check_board_is_new_combo(board_increment, results);
 
           if (is_new_combo) {
-            results.insert(board_hash);
+            results.insert(min_board_hash);
             new_increments.push_back(board_increment);
           }
         }

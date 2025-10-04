@@ -3,152 +3,34 @@ import multiprocessing as mp
 import time
 from pathlib import Path
 
-import board_game_permutations_utils as bg_utils
-import numpy as np
+import board_game_counting_utils as bg_utils
+import board_game_with_border_utils as wb_utils
 from tqdm import tqdm
-
-
-def zero_board(board):
-    size = len(board)
-    edges = np.concatenate([board[0, :], board[size - 1, :], board[:, 0], board[:, size - 1]])
-    board -= min(edges)
-    return board
-
-
-def drop_board(board):
-    size = len(board)
-    rings = size // 2
-    if size % 2 != 0:
-        rings += 1
-
-    for i in range(rings):
-        # first row
-        board[i, (0 + i) : (size - i)] = -2 * (i + 1)
-        # last row
-        board[size - (i + 1), (0 + i) : (size - i)] = -2 * (i + 1)
-        # first column
-        board[(0 + i) : (size - i), i] = -2 * (i + 1)
-        # last column
-        board[(0 + i) : (size - i), size - (i + 1)] = -2 * (i + 1)
-
-    return board
-
-
-def increment_board(board):
-    size = len(board)
-    for r in range(size):
-        for c in range(size):
-            board[r, c] += 1
-
-            if (
-                # ensure local physics is not broken
-                abs(board[max(0, r - 1), c] - board[r, c]) <= 2
-                and abs(board[min(size - 1, r + 1), c] - board[r, c]) <= 2
-                and abs(board[r, max(0, c - 1)] - board[r, c]) <= 2
-                and abs(board[r, min(size - 1, c + 1)] - board[r, c]) <= 2
-                # ensure boundary physics is not broken
-                and np.all(board[0, :] <= 2)
-                and np.all(board[size - 1, :] <= 2)
-                and np.all(board[:, 0] <= 2)
-                and np.all(board[:, size - 1] <= 2)
-            ):
-                return board
-
-            board[r, c] -= 1
-
-    return None
-
-
-def calculate_rounds(dropped_board, print_boards=False):
-    board = dropped_board.copy()
-    rounds = 0
-    while True:
-        board = increment_board(board)
-
-        if print_boards:
-            print(board)
-
-        rounds += 1
-
-        if board is None:
-            break
-
-    return rounds
-
-
-def generate_all_board_increments(board):
-    board_increments = {}
-    size = len(board)
-    for r in range(size):
-        for c in range(size):
-            board[r, c] += 1
-
-            if (
-                # ensure local physics is not broken
-                abs(board[max(0, r - 1), c] - board[r, c]) <= 2
-                and abs(board[min(size - 1, r + 1), c] - board[r, c]) <= 2
-                and abs(board[r, max(0, c - 1)] - board[r, c]) <= 2
-                and abs(board[r, min(size - 1, c + 1)] - board[r, c]) <= 2
-                # ensure boundary physics is not broken
-                and np.all(board[0, :] <= 2)
-                and np.all(board[size - 1, :] <= 2)
-                and np.all(board[:, 0] <= 2)
-                and np.all(board[:, size - 1] <= 2)
-            ):
-                is_new_combo, min_board_hash = check_board_is_new_combo(board, set(board_increments.keys()))
-                if is_new_combo:
-                    board_increments[min_board_hash] = board.copy()
-
-            board[r, c] -= 1
-
-    return board_increments
-
-
-def check_board_is_new_combo(board, results):
-    zeroed_board = zero_board(board.copy())
-    rot_boards = [zeroed_board] * 4
-    rot_board_hashes = [bg_utils.hash_board(zeroed_board)] * 4
-    for i in range(1, 4):
-        rot_board = np.rot90(rot_boards[i - 1])
-        rot_boards[i] = rot_board
-        rot_board_hashes[i] = bg_utils.hash_board(rot_board)
-
-    min_board_hash = min(rot_board_hashes)
-    if min_board_hash in results:
-        return False, None
-
-    return True, min_board_hash
-
-
-def generate_boards_mp(split_increments):
-    new_boards = []
-    for board in split_increments:
-        increments = generate_all_board_increments(board.copy())
-        for board_increment in increments.values():
-            zeroed = zero_board(board_increment.copy())
-            rotations = [zeroed]
-            hashes = {bg_utils.hash_board(zeroed)}
-            for _ in range(3):
-                rotated = np.rot90(rotations[-1])
-                rotations.append(rotated)
-                hashes.add(bg_utils.hash_board(rotated))
-            new_boards.append((board_increment.copy(), min(hashes)))
-    return new_boards
-
 
 if __name__ in "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
-        description="Calculate Board Game Permutations - With Border",
+        description="Calculate Board Game Permutations With Border"
+        "\nNon-unique boards, including rotations, but discounting height shifts.",
     )
     parser.add_argument(
-        "-s",
-        "--size",
+        "-r",
+        "--rows",
         metavar="\b",
         type=int,
         default=2,
         choices=list(range(1, 11)),
-        help="board size [default = 2]",
+        help="board rows [default = 2]",
+        required=False,
+    )
+    parser.add_argument(
+        "-c",
+        "--columns",
+        metavar="\b",
+        type=int,
+        default=2,
+        choices=list(range(1, 11)),
+        help="board columns [default = 2]",
         required=False,
     )
     parser.add_argument(
@@ -163,18 +45,20 @@ if __name__ in "__main__":
 
     args = parser.parse_args()
 
-    size = args.size
+    rows = args.rows
+    columns = args.columns
     n_jobs = args.n_jobs
 
     Path("new_increments").mkdir(exist_ok=True)
     Path("results").mkdir(exist_ok=True)
 
-    initial_board = bg_utils.generate_initial_board(size=size)
-    dropped_board = drop_board(initial_board)
-    rounds = calculate_rounds(dropped_board, print_boards=False)
-    print(f"{rounds} rounds for a {size}x{size} board\n")
+    initial_board = bg_utils.generate_initial_board(rows, columns)
+    dropped_board = wb_utils.drop_board(initial_board)
+    rounds = wb_utils.calculate_rounds(dropped_board.copy(), print_boards=False)
+    print(f"{rounds} rounds for a {rows}x{columns} board\n")
+    print(f"\n{dropped_board}\n")
 
-    zeroed_board = zero_board(dropped_board.copy())
+    zeroed_board = wb_utils.zero_board(dropped_board.copy())
     results = {bg_utils.hash_board(zeroed_board)}
     result_files = []
     last_round_increments = [dropped_board]
@@ -183,11 +67,14 @@ if __name__ in "__main__":
     new_increment_files = []
 
     if n_jobs > 1:
-        filename = bg_utils.write_to_file(last_round_increments, "new_increments")
+        filename = f"new_increments_{(time.time())}.txt"
+        with open(Path.cwd() / "new_increments" / filename, "w") as file:
+            file.write("\n".join(bg_utils.hash_board(increment) for increment in last_round_increments))
+
         increment_files.append(filename)
 
-    CHUNK_SIZE = 5_000
-    MAX_IN_MEM = 10_000_000
+    CHUNK_SIZE = 25_000
+    MAX_IN_MEM = 20_000_000
 
     start = time.time()
 
@@ -199,14 +86,14 @@ if __name__ in "__main__":
                 with open(Path.cwd() / "new_increments" / filename, "r") as file:
                     increments = file.read().splitlines()
 
-                increments = [bg_utils.board_hash_to_array(increment, size) for increment in increments]
+                increments = [bg_utils.board_hash_to_array(increment, rows, columns) for increment in increments]
 
                 for i in tqdm(range(0, len(increments), CHUNK_SIZE * n_jobs), leave=False):
                     split_increments = bg_utils.split_list(
                         increments[i : min(i + CHUNK_SIZE * n_jobs, len(increments))], n=n_jobs
                     )
                     with mp.Pool(processes=n_jobs) as pool:
-                        results_lists = pool.map(generate_boards_mp, split_increments)
+                        results_lists = pool.map(wb_utils.generate_boards_mp_perm, split_increments)
 
                     is_new_checks = bg_utils.check_results_vs_files(result_files, results_lists, n_jobs)
 
@@ -242,11 +129,11 @@ if __name__ in "__main__":
 
         else:
             for last_round_new_increment in tqdm(last_round_increments, leave=False):
-                board_increments = generate_all_board_increments(last_round_new_increment)
+                board_increments = wb_utils.generate_all_board_increments_perm(last_round_new_increment)
                 for board_increment in board_increments.values():
-                    is_new_combo, min_board_hash = check_board_is_new_combo(board_increment, results)
+                    is_new_combo, board_hash = wb_utils.check_board_is_new_perm(board_increment, results)
                     if is_new_combo:
-                        results.add(min_board_hash)
+                        results.add(board_hash)
                         new_increments.append(board_increment.copy())
 
         new_board_count = bg_utils.get_file_item_count(increment_files, "new_increments") + len(new_increments)

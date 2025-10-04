@@ -1,4 +1,5 @@
-#include "board_game_permutations_utils.h"
+#include "board_game_counting_utils.h"
+#include "board_game_no_border_utils.h"
 
 long long
 get_current_time_ms()
@@ -13,7 +14,7 @@ get_current_time_ms()
 void
 print_board(const Board& board)
 {
-  std::cout << "Board:\n";
+  std::cout << '\n';
   for (const std::vector row : board) {
     for (int val : row) {
       std::string str_int = std::to_string(val);
@@ -26,9 +27,9 @@ print_board(const Board& board)
 }
 
 Board
-generate_initial_board(const int& size)
+generate_initial_board(const int& rows, const int& columns)
 {
-  return Board(size, std::vector<int>(size, 0));
+  return Board(rows, std::vector<int>(columns, 0));
 }
 
 Board
@@ -51,15 +52,36 @@ rotate_board_90(Board board)
   return board;
 }
 
+Board
+rotate_board_180(Board board)
+{
+  int rows = board.size();
+  int mid_row = (rows / 2) + (rows % 2);
+
+  // swap rows
+  for (int r = 0; r < mid_row; ++r) {
+    std::swap(board[r], board[rows - r - 1]);
+  }
+
+  // reverse each row
+  for (int r = 0; r < rows; ++r) {
+    std::reverse(board[r].begin(), board[r].end());
+  }
+
+  return board;
+}
+
 std::string
 hash_board(const Board& board)
 {
-  int size = board.size();
-  std::string board_str;
-  board_str.reserve(size * size * 3);
+  int rows = int(board.size());
+  int columns = int(board[0].size());
 
-  for (int r = 0; r < size; ++r) {
-    for (int c = 0; c < size; ++c) {
+  std::string board_str;
+  board_str.reserve(rows * columns * 3);
+
+  for (int r = 0; r < rows; ++r) {
+    for (int c = 0; c < columns; ++c) {
       // board_str += std::to_string(r) + ","+ std::to_string(c) + "," +
       board_str += std::to_string(board[r][c]) + "|";
     }
@@ -68,26 +90,10 @@ hash_board(const Board& board)
   return board_str;
 }
 
-std::string
-hash_rectangular_board(const Board& board)
-{
-  int rs = int(board.size());
-  int cs = int(board[0].size());
-
-  std::string board_str;
-  board_str.reserve(rs * cs * 3);
-
-  for (int r = 0; r < rs; ++r) {
-    for (int c = 0; c < cs; ++c) {
-      board_str += std::to_string(board[r][c]) + "|";
-    }
-  }
-
-  return board_str;
-}
-
 Board
-board_hash_to_array(const std::string& board_hash_str, const int& size)
+board_hash_to_array(const std::string& board_hash_str,
+                    const int& rows,
+                    const int& columns)
 {
   std::vector<int> flat_values;
   std::stringstream ss(board_hash_str);
@@ -97,31 +103,7 @@ board_hash_to_array(const std::string& board_hash_str, const int& size)
     flat_values.push_back(std::stoi(token));
   }
 
-  Board board(size, std::vector<int>(size));
-  for (int i = 0; i < size * size; ++i) {
-    int row = i / size;
-    int col = i % size;
-    board[row][col] = flat_values[i];
-  }
-
-  return board;
-}
-
-Board
-rectangular_board_hash_to_array(const std::string& board_hash_str,
-                                const int& rows,
-                                const int& columns)
-{
-  std::vector<int> flat_values;
-  std::stringstream ss(board_hash_str);
-  std::string token;
-
-  while (std::getline(ss, token, '|')) {
-    flat_values.push_back(std::stoi(token));
-  }
-
-  Board board =
-    Board(std::vector<std::vector<int>>(rows, std::vector<int>(columns, 0)));
+  Board board = generate_initial_board(rows, columns);
   for (int i = 0; i < rows * columns; ++i) {
     int row = i / columns;
     int col = i % columns;
@@ -172,8 +154,7 @@ write_to_file(const std::unordered_set<std::string>& results,
 
 std::string
 write_to_file(const std::vector<Board>& new_increments,
-              const std::string& folder_name,
-              bool square)
+              const std::string& folder_name)
 {
   std::string filename =
     folder_name + "_" + std::to_string(get_current_time_ms()) + ".txt";
@@ -181,11 +162,7 @@ write_to_file(const std::vector<Board>& new_increments,
 
   std::ofstream file(filepath);
   for (const Board& new_increment : new_increments) {
-    if (square) {
-      file << hash_board(new_increment) << "\n";
-    } else {
-      file << hash_rectangular_board(new_increment) << "\n";
-    }
+    file << hash_board(new_increment) << "\n";
   }
 
   return filename;

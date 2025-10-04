@@ -4,15 +4,14 @@ import time
 from pathlib import Path
 
 import board_game_counting_utils as bg_utils
-import board_game_no_border_utils as nb_utils
-import numpy as np
+import board_game_with_border_utils as wb_utils
 from tqdm import tqdm
 
 if __name__ in "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
-        description="Calculate Board Game Permutations No Border"
-        "\nNon-unique boards, including rotations, but discounting height shifts.",
+        description="Calculate Board Game Combinations With Border"
+        "\nUnique boards, discounting rotations and height shifts.",
     )
     parser.add_argument(
         "-r",
@@ -54,25 +53,21 @@ if __name__ in "__main__":
     Path("results").mkdir(exist_ok=True)
 
     initial_board = bg_utils.generate_initial_board(rows, columns)
-    most_extreme_board = nb_utils.find_most_extreme_board(initial_board.copy())
-    board_min, board_max = np.min(most_extreme_board), np.max(most_extreme_board)
-    rounds = nb_utils.calculate_rounds(initial_board.copy(), board_min, board_max, print_boards=False)
+    dropped_board = wb_utils.drop_board(initial_board)
+    rounds = wb_utils.calculate_rounds(dropped_board.copy(), print_boards=False)
     print(f"{rounds} rounds for a {rows}x{columns} board\n")
-    print(f"\n{most_extreme_board}\n")
+    print(f"\n{dropped_board}\n")
 
-    zeroed_board = nb_utils.zero_board(initial_board.copy())
+    zeroed_board = wb_utils.zero_board(dropped_board.copy())
     results = {bg_utils.hash_board(zeroed_board)}
     result_files = []
-    last_round_increments = [initial_board]
+    last_round_increments = [dropped_board]
     new_increments = []
     increment_files = []
     new_increment_files = []
 
     if n_jobs > 1:
-        filename = f"new_increments_{(time.time())}.txt"
-        with open(Path.cwd() / "new_increments" / filename, "w") as file:
-            file.write("\n".join(bg_utils.hash_board(increment) for increment in last_round_increments))
-
+        filename = bg_utils.write_to_file(last_round_increments, "new_increments")
         increment_files.append(filename)
 
     CHUNK_SIZE = 25_000
@@ -95,9 +90,7 @@ if __name__ in "__main__":
                         increments[i : min(i + CHUNK_SIZE * n_jobs, len(increments))], n=n_jobs
                     )
                     with mp.Pool(processes=n_jobs) as pool:
-                        results_lists = pool.starmap(
-                            nb_utils.generate_boards_mp_perm, [(si, board_min, board_max) for si in split_increments]
-                        )
+                        results_lists = pool.map(wb_utils.generate_boards_mp_combo, split_increments)
 
                     is_new_checks = bg_utils.check_results_vs_files(result_files, results_lists, n_jobs)
 
@@ -133,13 +126,11 @@ if __name__ in "__main__":
 
         else:
             for last_round_new_increment in tqdm(last_round_increments, leave=False):
-                board_increments = nb_utils.generate_all_board_increments_perm(
-                    last_round_new_increment, board_min, board_max
-                )
+                board_increments = wb_utils.generate_all_board_increments_combo(last_round_new_increment)
                 for board_increment in board_increments.values():
-                    is_new_combo, board_hash = nb_utils.check_board_is_new_perm(board_increment, results)
+                    is_new_combo, min_board_hash = wb_utils.check_board_is_new_combo(board_increment, results)
                     if is_new_combo:
-                        results.add(board_hash)
+                        results.add(min_board_hash)
                         new_increments.append(board_increment.copy())
 
         new_board_count = bg_utils.get_file_item_count(increment_files, "new_increments") + len(new_increments)
