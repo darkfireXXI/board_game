@@ -1,7 +1,7 @@
 #include <thread>
 
 #include "board_game_counting_utils.h"
-#include "board_game_no_border_utils.h"
+#include "board_game_with_border_utils.h"
 
 int
 main(int argc, char* argv[])
@@ -23,26 +23,19 @@ main(int argc, char* argv[])
   fs::create_directory("results");
 
   Board initial_board = generate_initial_board(rows, columns);
-  Board most_extreme_board = find_most_extreme_board(initial_board);
-  int board_min = std::numeric_limits<int>::max();
-  int board_max = std::numeric_limits<int>::min();
-  for (int r = 0; r < rows; ++r) {
-    for (int c = 0; c < columns; ++c) {
-      board_min = std::min(board_min, most_extreme_board[r][c]);
-      board_max = std::max(board_max, most_extreme_board[r][c]);
-    }
-  }
-  int rounds =
-    calculate_rounds(most_extreme_board, board_min, board_max, false);
+  Board dropped_board = drop_board(initial_board);
+  int rounds = calculate_rounds(dropped_board, false);
   std::cout << rounds << " rounds for a " << rows << "x" << columns
             << " board\n";
-  print_board(most_extreme_board);
+  print_board(dropped_board);
 
-  Board zeroed_board = zero_board(initial_board);
+  Board zeroed_board = zero_board(dropped_board);
   std::unordered_set<std::string> results = { hash_board(zeroed_board) };
+  results.reserve(MAX_IN_MEM);
   std::vector<std::string> result_files;
-  std::vector<Board> last_round_increments = { zeroed_board };
+  std::vector<Board> last_round_increments = { dropped_board };
   std::vector<Board> new_increments;
+  new_increments.reserve(MAX_IN_MEM);
   std::vector<std::string> increment_files;
   std::vector<std::string> new_increment_files;
 
@@ -58,7 +51,7 @@ main(int argc, char* argv[])
     }
 
     file.close();
-    increment_files.emplace_back(filename);
+    increment_files.push_back(filename);
   }
 
   int CHUNK_SIZE = 35'000;
@@ -88,8 +81,7 @@ main(int argc, char* argv[])
           if (buffer[i] == '\n') {
             size_t len = i - start_buffer;
             temp_line.assign(&buffer[start_buffer], len);
-            increments.emplace_back(
-              board_hash_to_array(temp_line, rows, columns));
+            increments.push_back(board_hash_to_array(temp_line, rows, columns));
             start_buffer = i + 1;
           }
         }
@@ -105,18 +97,16 @@ main(int argc, char* argv[])
 
           std::vector<std::future<std::vector<std::pair<Board, std::string>>>>
             calc_futures;
+          calc_futures.reserve(n_jobs);
           for (const std::vector<Board>& split : split_increments) {
-            calc_futures.emplace_back(std::async(std::launch::async,
-                                                 generate_boards_mp_perm,
-                                                 split,
-                                                 board_min,
-                                                 board_max));
+            calc_futures.push_back(
+              std::async(std::launch::async, generate_boards_mp_combo, split));
           }
 
           std::vector<std::vector<std::pair<Board, std::string>>> results_lists;
           results_lists.reserve(n_jobs);
           for (auto& calc_future : calc_futures) {
-            results_lists.emplace_back(calc_future.get());
+            results_lists.push_back(calc_future.get());
           }
 
           std::vector<std::vector<uint8_t>> is_new_checks =
@@ -133,14 +123,14 @@ main(int argc, char* argv[])
                   results_lists[nj][j];
                 if (results.count(min_board_hash) == 0) {
                   results.insert(min_board_hash);
-                  new_increments.emplace_back(board_increment);
+                  new_increments.push_back(board_increment);
                 }
               }
             }
           }
 
           // dump excess results to txt file
-          if (results.size() >= MAX_IN_MEM) {
+          while (results.size() >= MAX_IN_MEM) {
             std::unordered_set<std::string> items_to_write;
             std::unordered_set<std::string>::iterator it = results.begin();
             size_t j = 0;
@@ -156,9 +146,9 @@ main(int argc, char* argv[])
               results.erase(item);
             }
 
-            result_files.emplace_back(filename);
+            result_files.push_back(filename);
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
           }
 
           // dump excess new increments to txt file
@@ -166,8 +156,8 @@ main(int argc, char* argv[])
             std::string filename =
               write_to_file(new_increments, "new_increments");
             new_increments.clear();
-            new_increment_files.emplace_back(filename);
-            // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            new_increments.reserve(MAX_IN_MEM);
+            new_increment_files.push_back(filename);
           }
         }
       }
@@ -175,8 +165,8 @@ main(int argc, char* argv[])
       if (new_increments.size() > 0) {
         std::string filename = write_to_file(new_increments, "new_increments");
         new_increments.clear();
-        new_increment_files.emplace_back(filename);
-        // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        new_increments.reserve(MAX_IN_MEM);
+        new_increment_files.push_back(filename);
       }
 
       increment_files = new_increment_files;
@@ -186,20 +176,19 @@ main(int argc, char* argv[])
       for (std::size_t i = 0; i < last_round_increments.size(); ++i) {
         Board last_round_new_increment = last_round_increments[i];
         std::unordered_map<std::string, Board> board_increments =
-          generate_all_board_increments_perm(
-            last_round_new_increment, board_min, board_max);
+          generate_all_board_increments_combo(last_round_new_increment);
 
         for (std::unordered_map<std::string, Board>::iterator it =
                board_increments.begin();
              it != board_increments.end();
              ++it) {
           Board board_increment = it->second;
-          auto [is_new_perm, min_board_hash] =
-            check_board_is_new_perm(board_increment, results);
+          auto [is_new_combo, min_board_hash] =
+            check_board_is_new_combo(board_increment, results);
 
-          if (is_new_perm) {
+          if (is_new_combo) {
             results.insert(min_board_hash);
-            new_increments.emplace_back(board_increment);
+            new_increments.push_back(board_increment);
           }
         }
       }

@@ -107,7 +107,7 @@ main(int argc, char* argv[])
             calc_futures;
           for (const std::vector<Board>& split : split_increments) {
             calc_futures.emplace_back(std::async(std::launch::async,
-                                                 generate_boards_mp_perm,
+                                                 generate_boards_mp_combo,
                                                  split,
                                                  board_min,
                                                  board_max));
@@ -186,7 +186,7 @@ main(int argc, char* argv[])
       for (std::size_t i = 0; i < last_round_increments.size(); ++i) {
         Board last_round_new_increment = last_round_increments[i];
         std::unordered_map<std::string, Board> board_increments =
-          generate_all_board_increments_perm(
+          generate_all_board_increments_combo(
             last_round_new_increment, board_min, board_max);
 
         for (std::unordered_map<std::string, Board>::iterator it =
@@ -194,10 +194,10 @@ main(int argc, char* argv[])
              it != board_increments.end();
              ++it) {
           Board board_increment = it->second;
-          auto [is_new_perm, min_board_hash] =
-            check_board_is_new_perm(board_increment, results);
+          auto [is_new_combo, min_board_hash] =
+            check_board_is_new_combo(board_increment, results);
 
-          if (is_new_perm) {
+          if (is_new_combo) {
             results.insert(min_board_hash);
             new_increments.emplace_back(board_increment);
           }

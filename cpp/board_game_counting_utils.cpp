@@ -1,4 +1,5 @@
-#include "board_game_permutations_utils.h"
+#include "board_game_counting_utils.h"
+#include "board_game_no_border_utils.h"
 
 long long
 get_current_time_ms()
@@ -13,7 +14,7 @@ get_current_time_ms()
 void
 print_board(const Board& board)
 {
-  std::cout << "Board:\n";
+  std::cout << '\n';
   for (const std::vector row : board) {
     for (int val : row) {
       std::string str_int = std::to_string(val);
@@ -23,6 +24,12 @@ print_board(const Board& board)
     std::cout << '\n';
   }
   std::cout << std::endl;
+}
+
+Board
+generate_initial_board(const int& rows, const int& columns)
+{
+  return Board(rows, std::vector<int>(columns, 0));
 }
 
 Board
@@ -46,20 +53,35 @@ rotate_board_90(Board board)
 }
 
 Board
-generate_initial_board(const int& size)
+rotate_board_180(Board board)
 {
-  return Board(size, std::vector<int>(size, 0));
+  int rows = board.size();
+  int mid_row = (rows / 2) + (rows % 2);
+
+  // swap rows
+  for (int r = 0; r < mid_row; ++r) {
+    std::swap(board[r], board[rows - r - 1]);
+  }
+
+  // reverse each row
+  for (int r = 0; r < rows; ++r) {
+    std::reverse(board[r].begin(), board[r].end());
+  }
+
+  return board;
 }
 
 std::string
 hash_board(const Board& board)
 {
-  int size = board.size();
-  std::string board_str;
-  board_str.reserve(board.size() * board.size() * 3);
+  int rows = int(board.size());
+  int columns = int(board[0].size());
 
-  for (int r = 0; r < size; ++r) {
-    for (int c = 0; c < size; ++c) {
+  std::string board_str;
+  board_str.reserve(rows * columns * 3);
+
+  for (int r = 0; r < rows; ++r) {
+    for (int c = 0; c < columns; ++c) {
       // board_str += std::to_string(r) + ","+ std::to_string(c) + "," +
       board_str += std::to_string(board[r][c]) + "|";
     }
@@ -69,7 +91,9 @@ hash_board(const Board& board)
 }
 
 Board
-board_hash_to_array(const std::string& board_hash_str, int size)
+board_hash_to_array(const std::string& board_hash_str,
+                    const int& rows,
+                    const int& columns)
 {
   std::vector<int> flat_values;
   std::stringstream ss(board_hash_str);
@@ -79,10 +103,10 @@ board_hash_to_array(const std::string& board_hash_str, int size)
     flat_values.push_back(std::stoi(token));
   }
 
-  Board board(size, std::vector<int>(size));
-  for (int i = 0; i < size * size; ++i) {
-    int row = i / size;
-    int col = i % size;
+  Board board = generate_initial_board(rows, columns);
+  for (int i = 0; i < rows * columns; ++i) {
+    int row = i / columns;
+    int col = i % columns;
     board[row][col] = flat_values[i];
   }
 
@@ -144,36 +168,50 @@ write_to_file(const std::vector<Board>& new_increments,
   return filename;
 }
 
-std::vector<std::vector<bool>>
+std::vector<std::vector<uint8_t>>
 check_results_vs_files(
   const std::vector<std::string>& result_files,
   const std::vector<std::vector<std::pair<Board, std::string>>>& results_lists,
   const int& n_jobs,
   const long long& max_in_mem)
 {
-  std::vector<std::vector<bool>> is_new_checks;
+  std::vector<std::vector<uint8_t>> is_new_checks;
   is_new_checks.reserve(n_jobs);
   for (const auto& result_chunk : results_lists) {
-    is_new_checks.emplace_back(result_chunk.size(), true);
+    is_new_checks.emplace_back(result_chunk.size(), 1);
   }
 
   for (const std::string& result_file : result_files) {
-    fs::path filepath = fs::current_path() / "results" / result_file;
-    std::ifstream file(filepath);
-
     std::unordered_set<std::string> temp_results;
     temp_results.reserve(max_in_mem);
-    std::string line;
-    while (std::getline(file, line)) {
-      temp_results.insert(line);
+
+    fs::path filepath = fs::current_path() / "results" / result_file;
+    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
+
+    std::streamsize file_size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::string buffer(file_size, '\0');
+    file.read(&buffer[0], file_size);
+
+    std::string temp_line;
+    size_t start_buffer = 0;
+    for (size_t i = 0; i < buffer.size(); ++i) {
+      if (buffer[i] == '\n') {
+        size_t len = i - start_buffer;
+        temp_line.assign(&buffer[start_buffer], len);
+        temp_results.insert(temp_line);
+        start_buffer = i + 1;
+      }
     }
 
-    std::vector<std::future<std::vector<bool>>> check_futures;
+    std::vector<std::future<std::vector<uint8_t>>> check_futures;
+    check_futures.reserve(n_jobs);
     for (size_t nj = 0; nj < n_jobs; ++nj) {
+      std::vector<uint8_t> is_new_check_copy = is_new_checks[nj];
       check_futures.push_back(std::async(std::launch::async,
-                                         check_results_vs_file_mp,
+                                         check_results_vs_mp,
                                          std::cref(results_lists[nj]),
-                                         is_new_checks[nj],
+                                         std::move(is_new_check_copy),
                                          std::cref(temp_results)));
     }
 
@@ -185,17 +223,42 @@ check_results_vs_files(
   return is_new_checks;
 }
 
-std::vector<bool>
-check_results_vs_file_mp(
+std::vector<std::vector<uint8_t>>
+check_results_vs_results(
+  const std::vector<std::vector<std::pair<Board, std::string>>>& results_lists,
+  std::vector<std::vector<uint8_t>>& is_new_checks,
+  const std::unordered_set<std::string>& results,
+  const int& n_jobs)
+{
+  std::vector<std::future<std::vector<uint8_t>>> check_futures;
+  check_futures.reserve(n_jobs);
+  for (size_t nj = 0; nj < n_jobs; ++nj) {
+    std::vector<uint8_t> is_new_check_copy = is_new_checks[nj];
+    check_futures.push_back(std::async(std::launch::async,
+                                       check_results_vs_mp,
+                                       std::cref(results_lists[nj]),
+                                       std::move(is_new_check_copy),
+                                       std::cref(results)));
+  }
+
+  for (size_t nj = 0; nj < n_jobs; ++nj) {
+    is_new_checks[nj] = check_futures[nj].get();
+  }
+
+  return is_new_checks;
+}
+
+std::vector<uint8_t>
+check_results_vs_mp(
   const std::vector<std::pair<Board, std::string>>& results_list,
-  std::vector<bool> is_new_check,
-  const std::unordered_set<std::string>& temp_results)
+  std::vector<uint8_t> is_new_check,
+  const std::unordered_set<std::string>& results)
 {
   for (size_t i = 0; i < results_list.size(); ++i) {
     if (is_new_check[i]) {
-      const std::string& min_board_hash = results_list[i].second;
-      if (temp_results.count(min_board_hash) > 0) {
-        is_new_check[i] = false;
+      const std::string& board_hash = results_list[i].second;
+      if (results.count(board_hash) > 0) {
+        is_new_check[i] = 0;
       }
     }
   }

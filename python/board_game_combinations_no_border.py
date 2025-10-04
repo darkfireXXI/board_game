@@ -11,8 +11,8 @@ from tqdm import tqdm
 if __name__ in "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
-        description="Calculate Board Game Permutations No Border"
-        "\nNon-unique boards, including rotations, but discounting height shifts.",
+        description="Calculate Board Game Combinations No Border"
+        "\nUnique boards, discounting rotations and height shifts.",
     )
     parser.add_argument(
         "-r",
@@ -96,7 +96,7 @@ if __name__ in "__main__":
                     )
                     with mp.Pool(processes=n_jobs) as pool:
                         results_lists = pool.starmap(
-                            nb_utils.generate_boards_mp_perm, [(si, board_min, board_max) for si in split_increments]
+                            nb_utils.generate_boards_mp_combo, [(si, board_min, board_max) for si in split_increments]
                         )
 
                     is_new_checks = bg_utils.check_results_vs_files(result_files, results_lists, n_jobs)
@@ -133,13 +133,13 @@ if __name__ in "__main__":
 
         else:
             for last_round_new_increment in tqdm(last_round_increments, leave=False):
-                board_increments = nb_utils.generate_all_board_increments_perm(
+                board_increments = nb_utils.generate_all_board_increments_combo(
                     last_round_new_increment, board_min, board_max
                 )
                 for board_increment in board_increments.values():
-                    is_new_combo, board_hash = nb_utils.check_board_is_new_perm(board_increment, results)
+                    is_new_combo, min_board_hash = nb_utils.check_board_is_new_combo(board_increment, results)
                     if is_new_combo:
-                        results.add(board_hash)
+                        results.add(min_board_hash)
                         new_increments.append(board_increment.copy())
 
         new_board_count = bg_utils.get_file_item_count(increment_files, "new_increments") + len(new_increments)

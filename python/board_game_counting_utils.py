@@ -5,29 +5,28 @@ from pathlib import Path
 import numpy as np
 
 
-def generate_initial_board(size):
-    initial_board = np.zeros((size, size))
+def generate_initial_board(rows, columns):
+    initial_board = np.zeros((rows, columns))
     return initial_board
 
 
 def hash_board(board):
-    size = len(board)
+    rows, columns = board.shape
     board_str = ""
-    for r in range(size):
-        for c in range(size):
+    for r in range(rows):
+        for c in range(columns):
             # board_str += f"{r},{c},{board[r, c]}|"
             board_str += f"{board[r, c]}|"
 
     return board_str
 
 
-def board_hash_to_array(board_hash_str, size):
-    board = np.zeros((size, size))
+def board_hash_to_array(board_hash_str, rows, columns):
+    board = generate_initial_board(rows, columns)
     squares = board_hash_str[:-1].split("|")
     for i, square in enumerate(squares):
-        # r, c, v = square.split(",")
-        r = i / size
-        c = i % size
+        r = i / columns
+        c = i % columns
         board[int(r), int(c)] = int(float(square))
 
     return board
