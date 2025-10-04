@@ -19,6 +19,9 @@ main(int argc, char* argv[])
     }
   }
 
+  int CHUNK_SIZE = 35'000;
+  int MAX_IN_MEM = 20'000'000;
+
   fs::create_directory("new_increments");
   fs::create_directory("results");
 
@@ -60,9 +63,6 @@ main(int argc, char* argv[])
     file.close();
     increment_files.emplace_back(filename);
   }
-
-  int CHUNK_SIZE = 35'000;
-  int MAX_IN_MEM = 20'000'000;
 
   long long start = get_current_time_ms();
 
