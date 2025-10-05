@@ -88,8 +88,7 @@ main(int argc, char* argv[])
           if (buffer[i] == '\n') {
             size_t len = i - start_buffer;
             temp_line.assign(&buffer[start_buffer], len);
-            increments.push_back(
-              board_hash_to_array(temp_line, rows, columns));
+            increments.push_back(board_hash_to_array(temp_line, rows, columns));
             start_buffer = i + 1;
           }
         }
@@ -107,10 +106,10 @@ main(int argc, char* argv[])
             calc_futures;
           for (const std::vector<Board>& split : split_increments) {
             calc_futures.push_back(std::async(std::launch::async,
-                                                 generate_boards_mp_perm,
-                                                 split,
-                                                 board_min,
-                                                 board_max));
+                                              generate_boards_mp_perm,
+                                              split,
+                                              board_min,
+                                              board_max));
           }
 
           std::vector<std::vector<std::pair<Board, std::string>>> results_lists;
@@ -200,7 +199,7 @@ main(int argc, char* argv[])
 
           if (is_new_perm) {
             results.insert(min_board_hash);
-            new_increments.push_back(board_increment);
+            new_increments.push_back(std::move(board_increment));
           }
         }
       }

@@ -189,7 +189,7 @@ main(int argc, char* argv[])
 
           if (is_new_combo) {
             results.insert(min_board_hash);
-            new_increments.push_back(board_increment);
+            new_increments.push_back(std::move(board_increment));
           }
         }
       }
