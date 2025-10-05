@@ -88,7 +88,7 @@ main(int argc, char* argv[])
           if (buffer[i] == '\n') {
             size_t len = i - start_buffer;
             temp_line.assign(&buffer[start_buffer], len);
-            increments.emplace_back(
+            increments.push_back(
               board_hash_to_array(temp_line, rows, columns));
             start_buffer = i + 1;
           }
@@ -106,7 +106,7 @@ main(int argc, char* argv[])
           std::vector<std::future<std::vector<std::pair<Board, std::string>>>>
             calc_futures;
           for (const std::vector<Board>& split : split_increments) {
-            calc_futures.emplace_back(std::async(std::launch::async,
+            calc_futures.push_back(std::async(std::launch::async,
                                                  generate_boards_mp_combo,
                                                  split,
                                                  board_min,
@@ -116,7 +116,7 @@ main(int argc, char* argv[])
           std::vector<std::vector<std::pair<Board, std::string>>> results_lists;
           results_lists.reserve(n_jobs);
           for (auto& calc_future : calc_futures) {
-            results_lists.emplace_back(calc_future.get());
+            results_lists.push_back(calc_future.get());
           }
 
           std::vector<std::vector<uint8_t>> is_new_checks =
@@ -131,9 +131,10 @@ main(int argc, char* argv[])
               if (is_new_checks[nj][j]) {
                 const auto& [board_increment, min_board_hash] =
                   results_lists[nj][j];
-                if (results.count(min_board_hash) == 0) {
+                auto [it, inserted] = results.insert(min_board_hash);
+                if (inserted) {
                   results.insert(min_board_hash);
-                  new_increments.emplace_back(board_increment);
+                  new_increments.push_back(std::move(board_increment));
                 }
               }
             }
@@ -156,7 +157,7 @@ main(int argc, char* argv[])
               results.erase(item);
             }
 
-            result_files.emplace_back(filename);
+            result_files.push_back(filename);
 
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
           }
@@ -166,8 +167,7 @@ main(int argc, char* argv[])
             std::string filename =
               write_to_file(new_increments, "new_increments");
             new_increments.clear();
-            new_increment_files.emplace_back(filename);
-            // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            new_increment_files.push_back(filename);
           }
         }
       }
@@ -175,8 +175,7 @@ main(int argc, char* argv[])
       if (new_increments.size() > 0) {
         std::string filename = write_to_file(new_increments, "new_increments");
         new_increments.clear();
-        new_increment_files.emplace_back(filename);
-        // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        new_increment_files.push_back(filename);
       }
 
       increment_files = new_increment_files;
@@ -199,7 +198,7 @@ main(int argc, char* argv[])
 
           if (is_new_combo) {
             results.insert(min_board_hash);
-            new_increments.emplace_back(board_increment);
+            new_increments.push_back(std::move(board_increment));
           }
         }
       }

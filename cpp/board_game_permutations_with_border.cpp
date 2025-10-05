@@ -17,44 +17,44 @@ main(int argc, char* argv[])
     } else if ((arg == "-n" || arg == "--n-jobs") && i + 1 < argc) {
       n_jobs = std::stoi(argv[++i]);
     }
+  }
 
-    int CHUNK_SIZE = 35'000;
-    int MAX_IN_MEM = 20'000'000;
+  int CHUNK_SIZE = 35'000;
+  int MAX_IN_MEM = 20'000'000;
 
-    fs::create_directory("new_increments");
-    fs::create_directory("results");
+  fs::create_directory("new_increments");
+  fs::create_directory("results");
 
-    Board initial_board = generate_initial_board(rows, columns);
-    Board dropped_board = drop_board(initial_board);
-    int rounds = calculate_rounds(dropped_board, false);
-    std::cout << rounds << " rounds for a " << rows << "x" << columns
-              << " board\n";
-    print_board(dropped_board);
+  Board initial_board = generate_initial_board(rows, columns);
+  Board dropped_board = drop_board(initial_board);
+  int rounds = calculate_rounds(dropped_board, false);
+  std::cout << rounds << " rounds for a " << rows << "x" << columns
+            << " board\n";
+  print_board(dropped_board);
 
-    Board zeroed_board = zero_board(dropped_board);
-    std::unordered_set<std::string> results = { hash_board(zeroed_board) };
-    results.reserve(MAX_IN_MEM);
-    std::vector<std::string> result_files;
-    std::vector<Board> last_round_increments = { dropped_board };
-    std::vector<Board> new_increments;
-    new_increments.reserve(MAX_IN_MEM);
-    std::vector<std::string> increment_files;
-    std::vector<std::string> new_increment_files;
+  Board zeroed_board = zero_board(dropped_board);
+  std::unordered_set<std::string> results = { hash_board(zeroed_board) };
+  results.reserve(MAX_IN_MEM);
+  std::vector<std::string> result_files;
+  std::vector<Board> last_round_increments = { dropped_board };
+  std::vector<Board> new_increments;
+  new_increments.reserve(MAX_IN_MEM);
+  std::vector<std::string> increment_files;
+  std::vector<std::string> new_increment_files;
 
-    if (n_jobs > 1) {
-      long long now = get_current_time_ms();
+  if (n_jobs > 1) {
+    long long now = get_current_time_ms();
 
-      std::string filename = "new_increments_" + std::to_string(now) + ".txt";
-      fs::path full_path = fs::current_path() / "new_increments" / filename;
+    std::string filename = "new_increments_" + std::to_string(now) + ".txt";
+    fs::path full_path = fs::current_path() / "new_increments" / filename;
 
-      std::ofstream file(full_path);
-      for (const Board& increment : last_round_increments) {
-        file << hash_board(increment) << "\n";
-      }
-
-      file.close();
-      increment_files.push_back(filename);
+    std::ofstream file(full_path);
+    for (const Board& increment : last_round_increments) {
+      file << hash_board(increment) << "\n";
     }
+
+    file.close();
+    increment_files.emplace_back(filename);
   }
 
   long long start = get_current_time_ms();
@@ -121,9 +121,10 @@ main(int argc, char* argv[])
               if (is_new_checks[nj][j]) {
                 const auto& [board_increment, min_board_hash] =
                   results_lists[nj][j];
-                if (results.count(min_board_hash) == 0) {
+                auto [it, inserted] = results.insert(min_board_hash);
+                if (inserted) {
                   results.insert(min_board_hash);
-                  new_increments.push_back(board_increment);
+                  new_increments.push_back(std::move(board_increment));
                 }
               }
             }

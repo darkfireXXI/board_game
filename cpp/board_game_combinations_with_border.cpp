@@ -54,7 +54,7 @@ main(int argc, char* argv[])
     }
 
     file.close();
-    increment_files.push_back(filename);
+    increment_files.emplace_back(filename);
   }
 
   long long start = get_current_time_ms();
@@ -121,9 +121,10 @@ main(int argc, char* argv[])
               if (is_new_checks[nj][j]) {
                 const auto& [board_increment, min_board_hash] =
                   results_lists[nj][j];
-                if (results.count(min_board_hash) == 0) {
+                auto [it, inserted] = results.insert(min_board_hash);
+                if (inserted) {
                   results.insert(min_board_hash);
-                  new_increments.push_back(board_increment);
+                  new_increments.push_back(std::move(board_increment));
                 }
               }
             }

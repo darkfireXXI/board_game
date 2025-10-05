@@ -114,15 +114,15 @@ check_board_is_new_combo(Board board,
 
   std::vector<std::string> hashes;
   hashes.reserve(4);
-  hashes.emplace_back(hash_board(rotation));
+  hashes.push_back(hash_board(rotation));
 
   for (size_t i = 1; i < 4; ++i) {
     if (rows == columns) {
       rotation = rotate_board_90(rotation);
-      hashes.emplace_back(hash_board(rotation));
+      hashes.push_back(hash_board(rotation));
     } else if (i % 2 == 0) {
       rotation = rotate_board_180(rotation);
-      hashes.emplace_back(hash_board(rotation));
+      hashes.push_back(hash_board(rotation));
     }
   }
 
@@ -266,15 +266,15 @@ generate_boards_mp_combo(const std::vector<Board>& split_increments,
       std::vector<std::string> hashes;
       hashes.reserve(4);
       Board rotation = zero_board(board_increment);
-      hashes.emplace_back(hash_board(rotation));
+      hashes.push_back(hash_board(rotation));
 
       for (size_t i = 1; i < 4; ++i) {
         if (rows == columns) {
           rotation = rotate_board_90(rotation);
-          hashes.emplace_back(hash_board(rotation));
+          hashes.push_back(hash_board(rotation));
         } else if (i % 2 == 0) {
           rotation = rotate_board_180(rotation);
-          hashes.emplace_back(hash_board(rotation));
+          hashes.push_back(hash_board(rotation));
         }
       }
 
