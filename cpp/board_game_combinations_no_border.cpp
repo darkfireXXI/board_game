@@ -6,7 +6,7 @@
 int
 main(int argc, char* argv[])
 {
-  int rows = 2, columns = 2, n_jobs = 1;
+  int rows = 2, columns = 2, n_jobs = 1, n_jobs_to_use = 1;
 
   for (size_t i = 1; i < argc; ++i) {
     std::string arg = argv[i];
@@ -75,32 +75,43 @@ main(int argc, char* argv[])
         increments.reserve(MAX_IN_MEM);
 
         fs::path filepath = fs::current_path() / "new_increments" / filename;
-        std::ifstream file(filepath, std::ios::binary | std::ios::ate);
 
+        std::ifstream file(filepath, std::ios::binary | std::ios::ate);
         std::streamsize file_size = file.tellg();
         file.seekg(0, std::ios::beg);
-        std::string buffer(file_size, '\0');
-        file.read(&buffer[0], file_size);
 
-        std::string temp_line;
-        size_t start_buffer = 0;
-        for (size_t i = 0; i < buffer.size(); ++i) {
-          if (buffer[i] == '\n') {
-            size_t len = i - start_buffer;
-            temp_line.assign(&buffer[start_buffer], len);
-            increments.push_back(board_hash_to_array(temp_line, rows, columns));
-            start_buffer = i + 1;
+        std::vector<char> buffer(file_size);
+        file.read(buffer.data(), file_size);
+
+        const char* data = buffer.data();
+        size_t start = 0;
+        for (size_t i = 0; i < static_cast<size_t>(file_size); ++i) {
+          if (data[i] == '\n') {
+            size_t len = i - start;
+            if (len > 0) {
+              std::string_view sv(data + start, len);
+              increments.push_back(
+                board_hash_to_array(std::string(sv), rows, columns));
+            }
+            start = i + 1;
           }
         }
 
-        for (size_t i = 0; i < increments.size(); i += CHUNK_SIZE * n_jobs) {
+        // stupid linux hack because multiprocessing on linux sometimes has
+        // issues with small increments
+        if (increments.size() < 100) {
+          n_jobs_to_use = 1;
+        }
+
+        for (size_t i = 0; i < increments.size();
+             i += CHUNK_SIZE * n_jobs_to_use) {
           size_t chunk_end =
-            std::min(i + CHUNK_SIZE * n_jobs, increments.size());
+            std::min(i + CHUNK_SIZE * n_jobs_to_use, increments.size());
           std::vector<Board> chunk(increments.begin() + i,
                                    increments.begin() + chunk_end);
 
           std::vector<std::vector<Board>> split_increments =
-            split_list(chunk, n_jobs);
+            split_list(chunk, n_jobs_to_use);
 
           std::vector<std::future<std::vector<std::pair<Board, std::string>>>>
             calc_futures;
@@ -113,19 +124,19 @@ main(int argc, char* argv[])
           }
 
           std::vector<std::vector<std::pair<Board, std::string>>> results_lists;
-          results_lists.reserve(n_jobs);
+          results_lists.reserve(n_jobs_to_use);
           for (auto& calc_future : calc_futures) {
             results_lists.push_back(calc_future.get());
           }
 
           std::vector<std::vector<uint8_t>> is_new_checks =
             check_results_vs_files(
-              result_files, results_lists, n_jobs, MAX_IN_MEM);
+              result_files, results_lists, n_jobs_to_use, MAX_IN_MEM);
 
           // is_new_checks = check_results_vs_results(
-          //   results_lists, is_new_checks, results, n_jobs);
+          //   results_lists, is_new_checks, results, n_jobs_to_use);
 
-          for (size_t nj = 0; nj < n_jobs; ++nj) {
+          for (size_t nj = 0; nj < n_jobs_to_use; ++nj) {
             for (size_t j = 0; j < results_lists[nj].size(); ++j) {
               if (is_new_checks[nj][j]) {
                 const auto& [board_increment, min_board_hash] =
@@ -140,25 +151,22 @@ main(int argc, char* argv[])
           }
 
           // dump excess results to txt file
-          if (results.size() >= MAX_IN_MEM) {
-            std::unordered_set<std::string> items_to_write;
+          while (results.size() >= MAX_IN_MEM) {
+            std::vector<std::string> items_to_write;
+            items_to_write.reserve(MAX_IN_MEM);
+
             std::unordered_set<std::string>::iterator it = results.begin();
             size_t j = 0;
             while (j < MAX_IN_MEM && it != results.end()) {
-              items_to_write.insert(*it);
+              items_to_write.push_back(std::move(*it));
+              it = results.erase(it);
               ++j;
-              ++it;
             }
 
             std::string filename = write_to_file(items_to_write, "results");
-
-            for (const std::string& item : items_to_write) {
-              results.erase(item);
-            }
-
             result_files.push_back(filename);
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
           }
 
           // dump excess new increments to txt file
@@ -179,6 +187,8 @@ main(int argc, char* argv[])
 
       increment_files = new_increment_files;
       new_increment_files.clear();
+
+      n_jobs_to_use = n_jobs;
 
     } else {
       for (std::size_t i = 0; i < last_round_increments.size(); ++i) {

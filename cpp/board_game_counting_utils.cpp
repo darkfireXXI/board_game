@@ -137,7 +137,7 @@ split_list(const std::vector<Board>& list, int n)
 }
 
 std::string
-write_to_file(const std::unordered_set<std::string>& results,
+write_to_file(const std::vector<std::string>& results,
               const std::string& folder_name)
 {
   std::string filename =
@@ -186,21 +186,24 @@ check_results_vs_files(
     temp_results.reserve(max_in_mem);
 
     fs::path filepath = fs::current_path() / "results" / result_file;
-    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
 
+    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
     std::streamsize file_size = file.tellg();
     file.seekg(0, std::ios::beg);
-    std::string buffer(file_size, '\0');
-    file.read(&buffer[0], file_size);
 
-    std::string temp_line;
-    size_t start_buffer = 0;
-    for (size_t i = 0; i < buffer.size(); ++i) {
-      if (buffer[i] == '\n') {
-        size_t len = i - start_buffer;
-        temp_line.assign(&buffer[start_buffer], len);
-        temp_results.insert(temp_line);
-        start_buffer = i + 1;
+    std::vector<char> buffer(file_size);
+    file.read(buffer.data(), file_size);
+
+    const char* data = buffer.data();
+    size_t start = 0;
+    for (size_t i = 0; i < static_cast<size_t>(file_size); ++i) {
+      if (data[i] == '\n') {
+        size_t len = i - start;
+        if (len > 0) {
+          std::string_view sv(data + start, len);
+          temp_results.emplace(sv);
+        }
+        start = i + 1;
       }
     }
 

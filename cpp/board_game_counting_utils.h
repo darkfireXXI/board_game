@@ -40,7 +40,7 @@ std::vector<std::vector<Board>>
 split_list(const std::vector<Board>& list, int n);
 
 std::string
-write_to_file(const std::unordered_set<std::string>& results,
+write_to_file(const std::vector<std::string>& results,
               const std::string& folder_name);
 
 std::string
