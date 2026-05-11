@@ -1,3 +1,8 @@
+// Enumerates all unique board permutations for a bordered board via BFS.
+// Same BFS as the combinations variant, but rotations are counted as distinct
+// boards — only height-offset normalization (zeroing by min edge value) is
+// used for dedup.
+
 #include <thread>
 
 #include "board_game_counting_utils.h"
@@ -19,8 +24,8 @@ main(int argc, char* argv[])
     }
   }
 
-  int CHUNK_SIZE = 35'000;
-  int MAX_IN_MEM = 20'000'000;
+  const int CHUNK_SIZE = 35'000;
+  const int MAX_IN_MEM = 20'000'000;
 
   fs::create_directory("new_increments");
   fs::create_directory("results");
@@ -77,16 +82,16 @@ main(int argc, char* argv[])
         file.read(buffer.data(), file_size);
 
         const char* data = buffer.data();
-        size_t start = 0;
+        size_t pos = 0;
         for (size_t i = 0; i < static_cast<size_t>(file_size); ++i) {
           if (data[i] == '\n') {
-            size_t len = i - start;
+            size_t len = i - pos;
             if (len > 0) {
-              std::string_view sv(data + start, len);
+              std::string_view sv(data + pos, len);
               increments.push_back(
                 board_hash_to_array(std::string(sv), rows, columns));
             }
-            start = i + 1;
+            pos = i + 1;
           }
         }
 
@@ -134,7 +139,6 @@ main(int argc, char* argv[])
                   results_lists[nj][j];
                 auto [it, inserted] = results.insert(min_board_hash);
                 if (inserted) {
-                  results.insert(min_board_hash);
                   new_increments.push_back(std::move(board_increment));
                 }
               }
@@ -229,7 +233,7 @@ main(int argc, char* argv[])
   std::cout << seconds_elapsed << " seconds";
   std::cout << std::endl;
 
-  int result_count = get_file_item_count(result_files, "results");
+  long long result_count = get_file_item_count(result_files, "results");
   std::cout << (result_count + results.size()) << " total unique boards found";
   std::cout << std::endl;
 }
