@@ -1,3 +1,6 @@
+// Shared utilities: compact binary hashing, rotation-without-copy, file I/O
+// for disk spilling, multi-threaded dedup checking, and display helpers.
+
 #include "board_game_counting_utils.h"
 #include "board_game_no_border_utils.h"
 
@@ -71,48 +74,93 @@ rotate_board_180(Board board)
   return board;
 }
 
+// Compact binary hash: one byte per cell, value biased by +128 so that
+// negative heights map to positive chars. The result is a row-major string
+// of length R*C — ~3× smaller than the old "val|val|..." text format.
 std::string
 hash_board(const Board& board)
 {
-  int rows = int(board.size());
-  int columns = int(board[0].size());
-
-  std::string board_str;
-  board_str.reserve(rows * columns * 3);
-
-  for (int r = 0; r < rows; ++r) {
-    for (int c = 0; c < columns; ++c) {
-      // board_str += std::to_string(r) + ","+ std::to_string(c) + "," +
-      board_str += std::to_string(board[r][c]) + "|";
-    }
-  }
-
-  return board_str;
+  int rows = board.size();
+  int cols = board[0].size();
+  std::string hash(rows * cols, '\0');
+  for (int r = 0; r < rows; ++r)
+    for (int c = 0; c < cols; ++c)
+      hash[r * cols + c] = static_cast<char>(board[r][c] + 128);
+  return hash;
 }
 
+// Hash with height-offset normalization applied on-the-fly (no board copy).
+// Subtracts zero_offset from each cell before encoding.
+std::string
+hash_board_zeroed(const Board& board, int zero_offset)
+{
+  int rows = board.size();
+  int cols = board[0].size();
+  std::string hash(rows * cols, '\0');
+  for (int r = 0; r < rows; ++r)
+    for (int c = 0; c < cols; ++c)
+      hash[r * cols + c] = static_cast<char>(board[r][c] - zero_offset + 128);
+  return hash;
+}
+
+// Rotation-without-copy: reads cells in rotated index order to produce a
+// zeroed hash directly — avoids allocating a rotated Board entirely.
+// 90° CW: new[r][c] = old[N-1-c][r] (square boards only)
+std::string
+hash_board_zeroed_rot90(const Board& board, int zero_offset)
+{
+  int n = board.size();
+  std::string hash(n * n, '\0');
+  for (int r = 0; r < n; ++r)
+    for (int c = 0; c < n; ++c)
+      hash[r * n + c] =
+        static_cast<char>(board[n - 1 - c][r] - zero_offset + 128);
+  return hash;
+}
+
+// 180°: new[r][c] = old[rows-1-r][cols-1-c] (works for any aspect ratio)
+std::string
+hash_board_zeroed_rot180(const Board& board, int zero_offset)
+{
+  int rows = board.size();
+  int cols = board[0].size();
+  std::string hash(rows * cols, '\0');
+  for (int r = 0; r < rows; ++r)
+    for (int c = 0; c < cols; ++c)
+      hash[r * cols + c] = static_cast<char>(board[rows - 1 - r][cols - 1 - c] -
+                                             zero_offset + 128);
+  return hash;
+}
+
+// 270° CW: new[r][c] = old[c][N-1-r] (square boards only)
+std::string
+hash_board_zeroed_rot270(const Board& board, int zero_offset)
+{
+  int n = board.size();
+  std::string hash(n * n, '\0');
+  for (int r = 0; r < n; ++r)
+    for (int c = 0; c < n; ++c)
+      hash[r * n + c] =
+        static_cast<char>(board[c][n - 1 - r] - zero_offset + 128);
+  return hash;
+}
+
+// Inverse of hash_board: decodes the compact binary string back to a Board.
+// Cast to unsigned char first to avoid sign-extension before subtracting bias.
 Board
 board_hash_to_array(const std::string& board_hash_str,
                     const int& rows,
                     const int& columns)
 {
-  std::vector<int> flat_values;
-  std::stringstream ss(board_hash_str);
-  std::string token;
-
-  while (std::getline(ss, token, '|')) {
-    flat_values.push_back(std::stoi(token));
-  }
-
   Board board = generate_initial_board(rows, columns);
-  for (int i = 0; i < rows * columns; ++i) {
-    int row = i / columns;
-    int col = i % columns;
-    board[row][col] = flat_values[i];
-  }
-
+  for (int i = 0; i < rows * columns; ++i)
+    board[i / columns][i % columns] =
+      static_cast<unsigned char>(board_hash_str[i]) - 128;
   return board;
 }
 
+// Splits a board list into up to n chunks for parallel dispatch.
+// Chunks may overlap slightly at boundaries due to integer rounding.
 std::vector<std::vector<Board>>
 split_list(const std::vector<Board>& list, int n)
 {
@@ -136,6 +184,8 @@ split_list(const std::vector<Board>& list, int n)
   return splits;
 }
 
+// Disk spill: writes hash strings to a timestamped file. Used when the
+// in-memory set exceeds MAX_IN_MEM to keep memory bounded.
 std::string
 write_to_file(const std::vector<std::string>& results,
               const std::string& folder_name)
@@ -152,6 +202,7 @@ write_to_file(const std::vector<std::string>& results,
   return filename;
 }
 
+// Overload: hashes boards before writing (for increment spills).
 std::string
 write_to_file(const std::vector<Board>& new_increments,
               const std::string& folder_name)
@@ -168,6 +219,9 @@ write_to_file(const std::vector<Board>& new_increments,
   return filename;
 }
 
+// Dedup against on-disk result files. For each spilled file, loads it into a
+// temporary hash set, then checks all candidate boards against it in parallel.
+// This is the main bottleneck at scale — each file is re-read per chunk.
 std::vector<std::vector<uint8_t>>
 check_results_vs_files(
   const std::vector<std::string>& result_files,
@@ -175,6 +229,7 @@ check_results_vs_files(
   const int& n_jobs,
   const long long& max_in_mem)
 {
+  // Initialize all candidates as "new" (1); subsequent checks flip to 0.
   std::vector<std::vector<uint8_t>> is_new_checks;
   is_new_checks.reserve(n_jobs);
   for (const auto& result_chunk : results_lists) {
@@ -182,6 +237,7 @@ check_results_vs_files(
   }
 
   for (const std::string& result_file : result_files) {
+    // Load one spilled file into a temporary set for fast lookup
     std::unordered_set<std::string> temp_results;
     temp_results.reserve(max_in_mem);
 
@@ -226,6 +282,7 @@ check_results_vs_files(
   return is_new_checks;
 }
 
+// Dedup against the in-memory result set (same parallel pattern as file check).
 std::vector<std::vector<uint8_t>>
 check_results_vs_results(
   const std::vector<std::vector<std::pair<Board, std::string>>>& results_lists,
@@ -251,6 +308,8 @@ check_results_vs_results(
   return is_new_checks;
 }
 
+// Per-thread worker: checks each candidate's hash against a set, flipping
+// the is_new flag to 0 for any duplicate found.
 std::vector<uint8_t>
 check_results_vs_mp(
   const std::vector<std::pair<Board, std::string>>& results_list,
@@ -308,10 +367,10 @@ get_file_item_count(std::vector<std::string> files, std::string folder_name)
 void
 display_round_stats(int round,
                     int rounds,
-                    std::time_t start,
-                    std::time_t round_start,
-                    int new_board_count,
-                    int result_count)
+                    long long start,
+                    long long round_start,
+                    long long new_board_count,
+                    long long result_count)
 {
   long long now = get_current_time_ms();
 

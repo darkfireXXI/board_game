@@ -30,6 +30,7 @@ main(int argc, char* argv[])
   fs::create_directory("new_increments");
   fs::create_directory("results");
 
+  // Build the BFS starting state: the deepest possible bordered board.
   Board initial_board = generate_initial_board(rows, columns);
   Board dropped_board = drop_board(initial_board);
   int rounds = calculate_rounds(dropped_board, false);
@@ -37,10 +38,12 @@ main(int argc, char* argv[])
             << " board\n";
   print_board(dropped_board);
 
+  // BFS state: for permutations, rotations are distinct — larger result space.
   Board zeroed_board = zero_board(dropped_board);
   std::unordered_set<std::string> results = { hash_board(zeroed_board) };
   results.reserve(MAX_IN_MEM);
   std::vector<std::string> result_files;
+  long long results_in_files = 0;
   std::vector<Board> last_round_increments = { dropped_board };
   std::vector<Board> new_increments;
   new_increments.reserve(MAX_IN_MEM);
@@ -64,8 +67,10 @@ main(int argc, char* argv[])
 
   long long start = get_current_time_ms();
 
+  // BFS main loop: each round expands the frontier by trying +1 on every cell.
   for (size_t round = 1; round <= rounds; ++round) {
     long long round_start = get_current_time_ms();
+    long long new_increments_in_files = 0;
 
     if (n_jobs > 1) {
       for (const std::string& filename : increment_files) {
@@ -95,8 +100,8 @@ main(int argc, char* argv[])
           }
         }
 
-        // stupid linux hack because multiprocessing on linux sometimes has
-        // issues with small increments
+        // Fall back to single-threaded for tiny batches (avoids thread
+        // overhead)
         if (increments.size() < 100) {
           n_jobs_use = 1;
         }
@@ -129,9 +134,6 @@ main(int argc, char* argv[])
             check_results_vs_files(
               result_files, results_lists, n_jobs_use, MAX_IN_MEM);
 
-          // is_new_checks = check_results_vs_results(
-          //   results_lists, is_new_checks, results, n_jobs_use);
-
           for (size_t nj = 0; nj < n_jobs_use; ++nj) {
             for (size_t j = 0; j < results_lists[nj].size(); ++j) {
               if (is_new_checks[nj][j]) {
@@ -160,6 +162,7 @@ main(int argc, char* argv[])
 
             std::string filename = write_to_file(items_to_write, "results");
             result_files.push_back(filename);
+            results_in_files += j;
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
           }
@@ -168,6 +171,7 @@ main(int argc, char* argv[])
           if (new_increments.size() >= MAX_IN_MEM) {
             std::string filename =
               write_to_file(new_increments, "new_increments");
+            new_increments_in_files += new_increments.size();
             new_increments.clear();
             new_increments.reserve(MAX_IN_MEM);
             new_increment_files.push_back(filename);
@@ -177,6 +181,7 @@ main(int argc, char* argv[])
 
       if (new_increments.size() > 0) {
         std::string filename = write_to_file(new_increments, "new_increments");
+        new_increments_in_files += new_increments.size();
         new_increments.clear();
         new_increments.reserve(MAX_IN_MEM);
         new_increment_files.push_back(filename);
@@ -188,6 +193,7 @@ main(int argc, char* argv[])
       n_jobs_use = n_jobs;
 
     } else {
+      // === SINGLE-THREADED PATH ===
       for (std::size_t i = 0; i < last_round_increments.size(); ++i) {
         Board last_round_new_increment = last_round_increments[i];
         std::unordered_map<std::string, Board> board_increments =
@@ -209,17 +215,19 @@ main(int argc, char* argv[])
       }
     }
 
-    long long new_board_count =
-      get_file_item_count(increment_files, "new_increments");
-    new_board_count += new_increments.size();
-    long long result_count = get_file_item_count(result_files, "results");
-    result_count += results.size();
+    long long new_board_count = new_increments_in_files + new_increments.size();
+    long long result_count = results_in_files + results.size();
 
     display_round_stats(
       round, rounds, start, round_start, new_board_count, result_count);
 
+    // Advance BFS frontier
     last_round_increments = new_increments;
     new_increments.clear();
+
+    // Early termination: all reachable states found
+    if (new_board_count == 0)
+      break;
   }
 
   long long end = get_current_time_ms();
@@ -233,7 +241,7 @@ main(int argc, char* argv[])
   std::cout << seconds_elapsed << " seconds";
   std::cout << std::endl;
 
-  long long result_count = get_file_item_count(result_files, "results");
-  std::cout << (result_count + results.size()) << " total unique boards found";
+  std::cout << (results_in_files + results.size())
+            << " total unique boards found";
   std::cout << std::endl;
 }
