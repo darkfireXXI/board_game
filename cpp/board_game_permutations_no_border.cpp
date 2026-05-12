@@ -62,7 +62,7 @@ main(int argc, char* argv[])
   if (n_jobs > 1) {
     long long now = get_current_time_ms();
 
-    std::string filename = "new_increments_" + std::to_string(now) + ".txt";
+    std::string filename = "new_increments_" + std::to_string(now) + ".bin";
     fs::path full_path = fs::current_path() / "new_increments" / filename;
 
     std::ofstream file(full_path);
@@ -141,9 +141,22 @@ main(int argc, char* argv[])
             results_lists.push_back(calc_future.get());
           }
 
-          std::vector<std::vector<uint8_t>> is_new_checks =
-            check_results_vs_files(
-              result_files, results_lists, n_jobs_to_use, MAX_IN_MEM);
+          // Initialize all candidates as "uncertain" (1)
+          std::vector<std::vector<uint8_t>> is_new_checks;
+          is_new_checks.reserve(n_jobs_to_use);
+          for (const auto& rl : results_lists)
+            is_new_checks.emplace_back(rl.size(), 1);
+
+          // Check in-memory set first (fast, catches most duplicates)
+          check_results_vs_results(
+            results_lists, is_new_checks, results, n_jobs_to_use);
+
+          // Check survivors against disk files (reverse chrono, early exit)
+          check_results_vs_files(result_files,
+                                 results_lists,
+                                 is_new_checks,
+                                 n_jobs_to_use,
+                                 MAX_IN_MEM);
 
           for (size_t nj = 0; nj < n_jobs_to_use; ++nj) {
             for (size_t j = 0; j < results_lists[nj].size(); ++j) {

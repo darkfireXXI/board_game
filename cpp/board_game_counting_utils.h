@@ -85,19 +85,21 @@ std::string
 write_to_file(const std::vector<Board>& new_increments,
               const std::string& folder_name);
 
-// Checks candidate boards against all on-disk result files to filter
-// duplicates. Loads each file into a temporary set and parallelizes the lookup
-// across jobs. Returns a per-job vector of uint8_t flags (1 = still new, 0 =
-// duplicate).
-std::vector<std::vector<uint8_t>>
+// Checks candidate boards against on-disk result files. Iterates files in
+// reverse chronological order (newest first — most likely to contain recent
+// duplicates) and exits early once all candidates are resolved.
+// Modifies is_new_checks in-place: flips 1→0 for duplicates found on disk.
+void
 check_results_vs_files(
   const std::vector<std::string>& result_files,
   const std::vector<std::vector<std::pair<Board, std::string>>>& results_lists,
+  std::vector<std::vector<uint8_t>>& is_new_checks,
   const int& n_jobs,
   const long long& max_in_mem);
 
-// Same as above but checks against the in-memory result set instead of files.
-std::vector<std::vector<uint8_t>>
+// Checks candidates against the in-memory result set in parallel.
+// Modifies is_new_checks in-place: flips 1→0 for duplicates found in memory.
+void
 check_results_vs_results(
   const std::vector<std::vector<std::pair<Board, std::string>>>& results_lists,
   std::vector<std::vector<uint8_t>>& is_new_checks,

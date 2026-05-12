@@ -191,7 +191,7 @@ write_to_file(const std::vector<std::string>& results,
               const std::string& folder_name)
 {
   std::string filename =
-    folder_name + "_" + std::to_string(get_current_time_ms()) + ".txt";
+    folder_name + "_" + std::to_string(get_current_time_ms()) + ".bin";
   fs::path filepath = fs::current_path() / folder_name / filename;
 
   std::ofstream file(filepath);
@@ -208,7 +208,7 @@ write_to_file(const std::vector<Board>& new_increments,
               const std::string& folder_name)
 {
   std::string filename =
-    folder_name + "_" + std::to_string(get_current_time_ms()) + ".txt";
+    folder_name + "_" + std::to_string(get_current_time_ms()) + ".bin";
   fs::path filepath = fs::current_path() / folder_name / filename;
 
   std::ofstream file(filepath);
@@ -219,25 +219,34 @@ write_to_file(const std::vector<Board>& new_increments,
   return filename;
 }
 
-// Dedup against on-disk result files. For each spilled file, loads it into a
-// temporary hash set, then checks all candidate boards against it in parallel.
-// This is the main bottleneck at scale — each file is re-read per chunk.
-std::vector<std::vector<uint8_t>>
+// Dedup against on-disk result files. Iterates in reverse chronological order
+// (newest files first) since recent rounds are most likely to contain
+// duplicates of current candidates. Exits early once all candidates are
+// resolved.
+void
 check_results_vs_files(
   const std::vector<std::string>& result_files,
   const std::vector<std::vector<std::pair<Board, std::string>>>& results_lists,
+  std::vector<std::vector<uint8_t>>& is_new_checks,
   const int& n_jobs,
   const long long& max_in_mem)
 {
-  // Initialize all candidates as "new" (1); subsequent checks flip to 0.
-  std::vector<std::vector<uint8_t>> is_new_checks;
-  is_new_checks.reserve(n_jobs);
-  for (const auto& result_chunk : results_lists) {
-    is_new_checks.emplace_back(result_chunk.size(), 1);
-  }
+  // Check if any candidates still need file verification
+  auto has_uncertain = [&]() {
+    for (size_t nj = 0; nj < static_cast<size_t>(n_jobs); ++nj)
+      for (size_t j = 0; j < is_new_checks[nj].size(); ++j)
+        if (is_new_checks[nj][j] == 1)
+          return true;
+    return false;
+  };
 
-  for (const std::string& result_file : result_files) {
-    // Load one spilled file into a temporary set for fast lookup
+  if (!has_uncertain())
+    return;
+
+  // Reverse iteration: newest files first (temporal locality)
+  for (auto it = result_files.rbegin(); it != result_files.rend(); ++it) {
+    const std::string& result_file = *it;
+
     std::unordered_set<std::string> temp_results;
     temp_results.reserve(max_in_mem);
 
@@ -265,7 +274,7 @@ check_results_vs_files(
 
     std::vector<std::future<std::vector<uint8_t>>> check_futures;
     check_futures.reserve(n_jobs);
-    for (size_t nj = 0; nj < n_jobs; ++nj) {
+    for (size_t nj = 0; nj < static_cast<size_t>(n_jobs); ++nj) {
       std::vector<uint8_t> is_new_check_copy = is_new_checks[nj];
       check_futures.push_back(std::async(std::launch::async,
                                          check_results_vs_mp,
@@ -274,16 +283,18 @@ check_results_vs_files(
                                          std::cref(temp_results)));
     }
 
-    for (size_t nj = 0; nj < n_jobs; ++nj) {
+    for (size_t nj = 0; nj < static_cast<size_t>(n_jobs); ++nj) {
       is_new_checks[nj] = check_futures[nj].get();
     }
-  }
 
-  return is_new_checks;
+    // Early exit: all candidates resolved, skip remaining files
+    if (!has_uncertain())
+      break;
+  }
 }
 
 // Dedup against the in-memory result set (same parallel pattern as file check).
-std::vector<std::vector<uint8_t>>
+void
 check_results_vs_results(
   const std::vector<std::vector<std::pair<Board, std::string>>>& results_lists,
   std::vector<std::vector<uint8_t>>& is_new_checks,
@@ -292,7 +303,7 @@ check_results_vs_results(
 {
   std::vector<std::future<std::vector<uint8_t>>> check_futures;
   check_futures.reserve(n_jobs);
-  for (size_t nj = 0; nj < n_jobs; ++nj) {
+  for (size_t nj = 0; nj < static_cast<size_t>(n_jobs); ++nj) {
     std::vector<uint8_t> is_new_check_copy = is_new_checks[nj];
     check_futures.push_back(std::async(std::launch::async,
                                        check_results_vs_mp,
@@ -301,11 +312,9 @@ check_results_vs_results(
                                        std::cref(results)));
   }
 
-  for (size_t nj = 0; nj < n_jobs; ++nj) {
+  for (size_t nj = 0; nj < static_cast<size_t>(n_jobs); ++nj) {
     is_new_checks[nj] = check_futures[nj].get();
   }
-
-  return is_new_checks;
 }
 
 // Per-thread worker: checks each candidate's hash against a set, flipping
