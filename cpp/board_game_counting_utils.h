@@ -7,6 +7,8 @@
 #define BOARD_GAME_COUNTING_UTILS_H
 
 #include <chrono>
+#include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <future>
@@ -18,6 +20,27 @@
 using Board = std::vector<std::vector<int>>;
 
 namespace fs = std::filesystem;
+
+// --- Bloom filter ---
+// Probabilistic set membership test: possibly_contains() may return true for
+// items never inserted (false positive) but never returns false for items that
+// were inserted. Used to skip expensive disk file checks for candidates that
+// are definitely new.
+
+class BloomFilter
+{
+  std::vector<uint64_t> bits_;
+  size_t num_bits_;
+  int num_hashes_;
+
+  std::pair<uint64_t, uint64_t> hash_pair(const std::string& key) const;
+
+public:
+  BloomFilter(size_t expected_items, double fp_rate = 0.01);
+  void insert(const std::string& key);
+  bool possibly_contains(const std::string& key) const;
+  size_t memory_bytes() const;
+};
 
 // --- General helpers ---
 

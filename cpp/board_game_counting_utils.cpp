@@ -4,6 +4,61 @@
 #include "board_game_counting_utils.h"
 #include "board_game_no_border_utils.h"
 
+// --- Bloom filter implementation ---
+
+std::pair<uint64_t, uint64_t>
+BloomFilter::hash_pair(const std::string& key) const
+{
+  uint64_t h1 = std::hash<std::string>{}(key);
+  uint64_t h2 = 14695981039346656037ULL;
+  for (unsigned char c : key) {
+    h2 ^= c;
+    h2 *= 1099511628211ULL;
+  }
+  return { h1, h2 };
+}
+
+BloomFilter::BloomFilter(size_t expected_items, double fp_rate)
+{
+  double ln2 = std::log(2.0);
+  num_bits_ = static_cast<size_t>(std::ceil(
+    -static_cast<double>(expected_items) * std::log(fp_rate) / (ln2 * ln2)));
+  num_hashes_ =
+    static_cast<int>(std::round(static_cast<double>(num_bits_) /
+                                static_cast<double>(expected_items) * ln2));
+  if (num_hashes_ < 1)
+    num_hashes_ = 1;
+  bits_.resize((num_bits_ + 63) / 64, 0);
+}
+
+void
+BloomFilter::insert(const std::string& key)
+{
+  auto [h1, h2] = hash_pair(key);
+  for (int i = 0; i < num_hashes_; ++i) {
+    uint64_t idx = (h1 + static_cast<uint64_t>(i) * h2) % num_bits_;
+    bits_[idx / 64] |= (1ULL << (idx % 64));
+  }
+}
+
+bool
+BloomFilter::possibly_contains(const std::string& key) const
+{
+  auto [h1, h2] = hash_pair(key);
+  for (int i = 0; i < num_hashes_; ++i) {
+    uint64_t idx = (h1 + static_cast<uint64_t>(i) * h2) % num_bits_;
+    if (!(bits_[idx / 64] & (1ULL << (idx % 64))))
+      return false;
+  }
+  return true;
+}
+
+size_t
+BloomFilter::memory_bytes() const
+{
+  return bits_.size() * sizeof(uint64_t);
+}
+
 long long
 get_current_time_ms()
 {
