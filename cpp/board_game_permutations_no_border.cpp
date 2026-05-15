@@ -25,6 +25,7 @@ main(int argc, char* argv[])
 
   const int CHUNK_SIZE = 35'000;
   const int MAX_IN_MEM = 20'000'000;
+  const int MAX_SURVIVORS = 5'000'000;
   const long long BLOOM_EXPECTED_ITEMS = 200'000'000;
 
   fs::create_directory("new_increments");
@@ -91,9 +92,110 @@ main(int argc, char* argv[])
     long long bloom_skipped = 0;
 
     if (n_jobs > 1) {
-      // Phase 1: Generate candidates and filter against in-memory set
       std::vector<std::pair<Board, std::string>> all_survivors;
       std::vector<std::pair<Board, std::string>> bloom_confirmed;
+
+      auto flush_survivors = [&]() {
+        long long tf3 = get_current_time_ms();
+
+        if (!all_survivors.empty() && !result_files.empty()) {
+          std::vector<std::vector<std::pair<Board, std::string>>> survivor_lists(
+            n_jobs);
+          for (size_t si = 0; si < all_survivors.size(); ++si)
+            survivor_lists[si % n_jobs].push_back(
+              std::move(all_survivors[si]));
+          all_survivors.clear();
+
+          std::vector<std::vector<uint8_t>> survivor_checks;
+          for (const auto& sl : survivor_lists)
+            survivor_checks.emplace_back(sl.size(), 1);
+
+          check_results_vs_files(
+            result_files, survivor_lists, survivor_checks, n_jobs, MAX_IN_MEM);
+
+          time_file_check += get_current_time_ms() - tf3;
+          long long tf4 = get_current_time_ms();
+
+          for (auto& [board_increment, min_board_hash] : bloom_confirmed) {
+            auto [it, inserted] = results.insert(std::move(min_board_hash));
+            if (inserted) {
+              bloom.insert(*it);
+              new_increments.push_back(std::move(board_increment));
+            }
+          }
+          bloom_confirmed.clear();
+
+          for (size_t nj = 0; nj < static_cast<size_t>(n_jobs); ++nj) {
+            for (size_t sj = 0; sj < survivor_lists[nj].size(); ++sj) {
+              if (survivor_checks[nj][sj]) {
+                auto& [board_increment, min_board_hash] =
+                  survivor_lists[nj][sj];
+                auto [it, inserted] =
+                  results.insert(std::move(min_board_hash));
+                if (inserted) {
+                  bloom.insert(*it);
+                  new_increments.push_back(std::move(board_increment));
+                }
+              }
+            }
+          }
+
+          time_insertion += get_current_time_ms() - tf4;
+        } else {
+          time_file_check += get_current_time_ms() - tf3;
+          long long tf4 = get_current_time_ms();
+
+          for (auto& [board_increment, min_board_hash] : bloom_confirmed) {
+            auto [it, inserted] = results.insert(std::move(min_board_hash));
+            if (inserted) {
+              bloom.insert(*it);
+              new_increments.push_back(std::move(board_increment));
+            }
+          }
+          bloom_confirmed.clear();
+
+          for (auto& [board_increment, min_board_hash] : all_survivors) {
+            auto [it, inserted] = results.insert(std::move(min_board_hash));
+            if (inserted) {
+              bloom.insert(*it);
+              new_increments.push_back(std::move(board_increment));
+            }
+          }
+          all_survivors.clear();
+
+          time_insertion += get_current_time_ms() - tf4;
+        }
+
+        long long tf5 = get_current_time_ms();
+
+        while (results.size() >= MAX_IN_MEM) {
+          std::vector<std::string> items_to_write;
+          items_to_write.reserve(MAX_IN_MEM);
+
+          std::unordered_set<std::string>::iterator it = results.begin();
+          size_t sj = 0;
+          while (sj < MAX_IN_MEM && it != results.end()) {
+            items_to_write.push_back(std::move(*it));
+            it = results.erase(it);
+            ++sj;
+          }
+
+          std::string fn = write_to_file(items_to_write, "results");
+          result_files.push_back(fn);
+          results_in_files += sj;
+
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
+        if (new_increments.size() >= MAX_IN_MEM) {
+          std::string fn = write_to_file(new_increments, "new_increments");
+          new_increments_in_files += new_increments.size();
+          new_increments.clear();
+          new_increment_files.push_back(fn);
+        }
+
+        time_disk_spill += get_current_time_ms() - tf5;
+      };
 
       for (const std::string& filename : increment_files) {
         std::vector<Board> increments;
@@ -184,110 +286,13 @@ main(int argc, char* argv[])
               }
             }
           }
+
+          if (all_survivors.size() + bloom_confirmed.size() >= MAX_SURVIVORS)
+            flush_survivors();
         }
       }
 
-      // Phase 2: Check remaining survivors against disk files once
-      long long t3 = get_current_time_ms();
-
-      if (!all_survivors.empty() && !result_files.empty()) {
-        std::vector<std::vector<std::pair<Board, std::string>>> survivor_lists(
-          n_jobs);
-        for (size_t i = 0; i < all_survivors.size(); ++i)
-          survivor_lists[i % n_jobs].push_back(std::move(all_survivors[i]));
-        all_survivors.clear();
-
-        std::vector<std::vector<uint8_t>> survivor_checks;
-        for (const auto& sl : survivor_lists)
-          survivor_checks.emplace_back(sl.size(), 1);
-
-        check_results_vs_files(
-          result_files, survivor_lists, survivor_checks, n_jobs, MAX_IN_MEM);
-
-        time_file_check += get_current_time_ms() - t3;
-
-        // Phase 3: Insert confirmed-new results
-        long long t4 = get_current_time_ms();
-
-        for (auto& [board_increment, min_board_hash] : bloom_confirmed) {
-          auto [it, inserted] = results.insert(std::move(min_board_hash));
-          if (inserted) {
-            bloom.insert(*it);
-            new_increments.push_back(std::move(board_increment));
-          }
-        }
-        bloom_confirmed.clear();
-
-        for (size_t nj = 0; nj < static_cast<size_t>(n_jobs); ++nj) {
-          for (size_t j = 0; j < survivor_lists[nj].size(); ++j) {
-            if (survivor_checks[nj][j]) {
-              auto& [board_increment, min_board_hash] = survivor_lists[nj][j];
-              auto [it, inserted] = results.insert(std::move(min_board_hash));
-              if (inserted) {
-                bloom.insert(*it);
-                new_increments.push_back(std::move(board_increment));
-              }
-            }
-          }
-        }
-
-        time_insertion += get_current_time_ms() - t4;
-      } else {
-        time_file_check += get_current_time_ms() - t3;
-
-        long long t4 = get_current_time_ms();
-
-        for (auto& [board_increment, min_board_hash] : bloom_confirmed) {
-          auto [it, inserted] = results.insert(std::move(min_board_hash));
-          if (inserted) {
-            bloom.insert(*it);
-            new_increments.push_back(std::move(board_increment));
-          }
-        }
-        bloom_confirmed.clear();
-
-        for (auto& [board_increment, min_board_hash] : all_survivors) {
-          auto [it, inserted] = results.insert(std::move(min_board_hash));
-          if (inserted) {
-            bloom.insert(*it);
-            new_increments.push_back(std::move(board_increment));
-          }
-        }
-        all_survivors.clear();
-
-        time_insertion += get_current_time_ms() - t4;
-      }
-
-      // Spill excess results/increments to disk
-      long long t5 = get_current_time_ms();
-
-      while (results.size() >= MAX_IN_MEM) {
-        std::vector<std::string> items_to_write;
-        items_to_write.reserve(MAX_IN_MEM);
-
-        std::unordered_set<std::string>::iterator it = results.begin();
-        size_t j = 0;
-        while (j < MAX_IN_MEM && it != results.end()) {
-          items_to_write.push_back(std::move(*it));
-          it = results.erase(it);
-          ++j;
-        }
-
-        std::string filename = write_to_file(items_to_write, "results");
-        result_files.push_back(filename);
-        results_in_files += j;
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      }
-
-      if (new_increments.size() >= MAX_IN_MEM) {
-        std::string filename = write_to_file(new_increments, "new_increments");
-        new_increments_in_files += new_increments.size();
-        new_increments.clear();
-        new_increment_files.push_back(filename);
-      }
-
-      time_disk_spill += get_current_time_ms() - t5;
+      flush_survivors();
 
       if (new_increments.size() > 0) {
         std::string filename = write_to_file(new_increments, "new_increments");
