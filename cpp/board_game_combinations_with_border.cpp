@@ -78,12 +78,16 @@ main(int argc, char* argv[])
   for (size_t round = 1; round <= rounds; ++round) {
     long long round_start = get_current_time_ms();
     long long new_increments_in_files = 0;
+    long long time_file_read = 0, time_board_gen = 0, time_mem_check = 0;
+    long long time_file_check = 0, time_insertion = 0, time_disk_spill = 0;
 
     // === MULTI-THREADED PATH ===
     if (n_jobs > 1) {
       for (const std::string& filename : increment_files) {
         std::vector<Board> increments;
         increments.reserve(MAX_IN_MEM);
+
+        long long t0 = get_current_time_ms();
 
         // Bulk file read: slurp entire file then parse newline-delimited hashes
         fs::path filepath = fs::current_path() / "new_increments" / filename;
@@ -109,6 +113,8 @@ main(int argc, char* argv[])
           }
         }
 
+        time_file_read += get_current_time_ms() - t0;
+
         // Fall back to single-threaded for tiny batches (avoids thread
         // overhead)
         if (increments.size() < 100) {
@@ -125,6 +131,8 @@ main(int argc, char* argv[])
           std::vector<std::vector<Board>> split_increments =
             split_list(chunk, n_jobs_to_use);
 
+          long long t1 = get_current_time_ms();
+
           std::vector<std::future<std::vector<std::pair<Board, std::string>>>>
             calc_futures;
           calc_futures.reserve(n_jobs_to_use);
@@ -139,15 +147,22 @@ main(int argc, char* argv[])
             results_lists.push_back(calc_future.get());
           }
 
+          time_board_gen += get_current_time_ms() - t1;
+
           // Initialize all candidates as "uncertain" (1)
           std::vector<std::vector<uint8_t>> is_new_checks;
           is_new_checks.reserve(n_jobs_to_use);
           for (const auto& rl : results_lists)
             is_new_checks.emplace_back(rl.size(), 1);
 
+          long long t2 = get_current_time_ms();
+
           // Check in-memory set first (fast, catches most duplicates)
           check_results_vs_results(
             results_lists, is_new_checks, results, n_jobs_to_use);
+
+          time_mem_check += get_current_time_ms() - t2;
+          long long t3 = get_current_time_ms();
 
           // Check survivors against disk files (reverse chrono, early exit)
           check_results_vs_files(result_files,
@@ -155,6 +170,9 @@ main(int argc, char* argv[])
                                  is_new_checks,
                                  n_jobs_to_use,
                                  MAX_IN_MEM);
+
+          time_file_check += get_current_time_ms() - t3;
+          long long t4 = get_current_time_ms();
 
           for (size_t nj = 0; nj < n_jobs_to_use; ++nj) {
             for (size_t j = 0; j < results_lists[nj].size(); ++j) {
@@ -168,6 +186,9 @@ main(int argc, char* argv[])
               }
             }
           }
+
+          time_insertion += get_current_time_ms() - t4;
+          long long t5 = get_current_time_ms();
 
           // dump excess results to txt file
           while (results.size() >= MAX_IN_MEM) {
@@ -198,6 +219,8 @@ main(int argc, char* argv[])
             new_increments.reserve(MAX_IN_MEM);
             new_increment_files.push_back(filename);
           }
+
+          time_disk_spill += get_current_time_ms() - t5;
         }
       }
 
@@ -242,6 +265,21 @@ main(int argc, char* argv[])
 
     display_round_stats(
       round, rounds, start, round_start, new_board_count, result_count);
+
+    if (n_jobs > 1) {
+      long long total_step_time = time_file_read + time_board_gen +
+                                  time_mem_check + time_file_check +
+                                  time_insertion + time_disk_spill;
+      std::cout << "\tStep timing (seconds):\n";
+      std::cout << "\t  file read:   " << time_file_read / 1000.0 << "\n";
+      std::cout << "\t  board gen:   " << time_board_gen / 1000.0 << "\n";
+      std::cout << "\t  mem check:   " << time_mem_check / 1000.0 << "\n";
+      std::cout << "\t  file check:  " << time_file_check / 1000.0 << "\n";
+      std::cout << "\t  insertion:   " << time_insertion / 1000.0 << "\n";
+      std::cout << "\t  disk spill:  " << time_disk_spill / 1000.0 << "\n";
+      std::cout << "\t  accounted:   " << total_step_time / 1000.0 << "\n";
+      std::cout << std::endl;
+    }
 
     // Advance BFS frontier
     last_round_increments = new_increments;
