@@ -25,8 +25,8 @@ main(int argc, char* argv[])
   }
 
   const int CHUNK_SIZE = 35'000;
-  const int MAX_IN_MEM = 20'000'000;
-  const int MAX_SURVIVORS = 5'000'000;
+  const int MAX_IN_MEM = 30'000'000;
+  const int MAX_SURVIVORS = 7'500'000;
   const long long BLOOM_EXPECTED_ITEMS = 200'000'000;
 
   fs::create_directory("new_increments");
