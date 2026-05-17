@@ -1,8 +1,23 @@
 // Enumerates all unique board combinations for a borderless board via BFS.
-// Starting from the most extreme (lowest) board, each round tries incrementing
-// every cell by +1 and checks adjacency constraints. Boards equivalent under
-// rotation and height-offset (zeroing) are deduplicated. When the in-memory
-// set exceeds MAX_IN_MEM, results spill to disk.
+//
+// Algorithm overview:
+//   Starting from the most extreme (lowest) board — a diagonal ramp where each
+//   cell is (row + col) * 2 — each BFS round tries incrementing every cell by
+//   +1 and checks adjacency constraints (neighbors differ by at most 2). Boards
+//   equivalent under rotation and height-offset (zeroing by global minimum) are
+//   deduplicated. No border constraint exists, so cells have no max height cap.
+//
+// Deduplication strategy (3-tier):
+//   1. In-memory hash set: O(1) lookup for the most recent results.
+//   2. Bloom filter: probabilistic filter over ALL known results (in-memory +
+//      on-disk). If Bloom says "definitely not seen," we skip the expensive
+//      disk check entirely. False positives go to the disk-check path.
+//   3. Disk files: when in-memory set exceeds MAX_IN_MEM, results spill to
+//      disk. Candidates that survive tiers 1-2 are batch-checked against files.
+//
+// Memory management:
+//   Survivor vectors (candidates awaiting disk check) are periodically flushed
+//   when they exceed MAX_SURVIVORS to bound peak RAM usage.
 
 #include <thread>
 
@@ -25,6 +40,16 @@ main(int argc, char* argv[])
     }
   }
 
+  // --- Tuning constants ---
+  // CHUNK_SIZE: number of boards each thread processes per batch.
+  // MAX_IN_MEM: max results kept in the in-memory hash set before spilling to
+  //   disk. Larger = fewer disk files = faster file checks, but more RAM.
+  // MAX_SURVIVORS: max candidates accumulated before triggering a flush to
+  //   prevent unbounded memory growth. Larger = fewer flushes = better batch
+  //   amortization of disk I/O, but more RAM.
+  // BLOOM_EXPECTED_ITEMS: expected total unique boards for Bloom filter sizing.
+  //   At 1% FPR this uses ~228 MB. Oversizing is safe (wastes some RAM);
+  //   undersizing increases false positives (more unnecessary disk checks).
   const int CHUNK_SIZE = 35'000;
   const int MAX_IN_MEM = 30'000'000;
   const int MAX_SURVIVORS = 7'500'000;
@@ -33,8 +58,10 @@ main(int argc, char* argv[])
   fs::create_directory("new_increments");
   fs::create_directory("results");
 
-  // Build the BFS starting state: the most extreme (diagonal ramp) board.
-  // board_min/board_max define the valid height range for increment checks.
+  // --- BFS starting state ---
+  // The most extreme board for borderless is the diagonal ramp: cell(r,c) =
+  // (r+c)*2. board_min/board_max define the valid height range — cells can
+  // only be incremented if they stay within [board_min, board_max].
   Board initial_board = generate_initial_board(rows, columns);
   Board most_extreme_board = find_most_extreme_board(initial_board);
   int board_min = std::numeric_limits<int>::max();
@@ -51,6 +78,9 @@ main(int argc, char* argv[])
             << " board\n";
   print_board(most_extreme_board);
 
+  // --- Deduplication state initialization ---
+  // Zero the board (subtract global minimum) to get its canonical form, then
+  // hash it. The Bloom filter and in-memory set both start with this seed.
   Board zeroed_board = zero_board(initial_board);
   std::string initial_hash = hash_board(zeroed_board);
   BloomFilter bloom(BLOOM_EXPECTED_ITEMS);
@@ -67,8 +97,8 @@ main(int argc, char* argv[])
   std::vector<std::string> increment_files;
   std::vector<std::string> new_increment_files;
 
-  // Multi-threaded path: serialize initial increments to disk so threads
-  // can read them independently.
+  // For multi-threaded mode, serialize the initial frontier to disk so worker
+  // threads can read it independently without shared-memory coordination.
   if (n_jobs > 1) {
     long long now = get_current_time_ms();
 
@@ -86,7 +116,10 @@ main(int argc, char* argv[])
 
   long long start = get_current_time_ms();
 
-  // BFS main loop: each round expands the frontier by trying +1 on every cell.
+  // === BFS MAIN LOOP ===
+  // Each round expands the frontier: for every board from the previous round,
+  // try incrementing each cell by +1, validate constraints, deduplicate, and
+  // collect genuinely new boards as the next round's frontier.
   for (size_t round = 1; round <= rounds; ++round) {
     long long round_start = get_current_time_ms();
     long long new_increments_in_files = 0;
@@ -94,14 +127,28 @@ main(int argc, char* argv[])
     long long time_file_check = 0, time_insertion = 0, time_disk_spill = 0;
     long long bloom_skipped = 0;
 
+    // === MULTI-THREADED PATH ===
     if (n_jobs > 1) {
+      // Candidates are triaged into two buckets after in-memory dedup:
+      //   bloom_confirmed: Bloom says "definitely new" — skip disk check,
+      //     insert directly. (No false negatives in a Bloom filter.)
+      //   all_survivors: Bloom says "maybe seen" — must check against disk
+      //     files to confirm. These are batched for efficiency.
       std::vector<std::pair<Board, std::string>> all_survivors;
       std::vector<std::pair<Board, std::string>> bloom_confirmed;
 
+      // --- flush_survivors: periodic batch-flush to bound memory ---
+      // When accumulated candidates exceed MAX_SURVIVORS, this lambda:
+      //   1. Checks all_survivors against on-disk result files (batch I/O).
+      //   2. Inserts confirmed-new boards into results set + Bloom filter.
+      //   3. Spills results/increments to disk if they exceed MAX_IN_MEM.
+      // Batching amortizes file I/O: one scan per file eliminates many
+      // candidates at once, rather than checking one-at-a-time.
       auto flush_survivors = [&]() {
         long long tf3 = get_current_time_ms();
 
         if (!all_survivors.empty() && !result_files.empty()) {
+          // Distribute survivors across n_jobs lists for parallel file checking.
           std::vector<std::vector<std::pair<Board, std::string>>> survivor_lists(
             n_jobs);
           for (size_t si = 0; si < all_survivors.size(); ++si)
@@ -113,12 +160,16 @@ main(int argc, char* argv[])
           for (const auto& sl : survivor_lists)
             survivor_checks.emplace_back(sl.size(), 1);
 
+          // Batch check against all on-disk result files. Each file is read
+          // once and scanned against all remaining survivors. As survivors are
+          // eliminated by earlier files, later files have fewer to check.
           check_results_vs_files(
             result_files, survivor_lists, survivor_checks, n_jobs, MAX_IN_MEM);
 
           time_file_check += get_current_time_ms() - tf3;
           long long tf4 = get_current_time_ms();
 
+          // Insert bloom_confirmed candidates (Bloom said "definitely new").
           for (auto& [board_increment, min_board_hash] : bloom_confirmed) {
             auto [it, inserted] = results.insert(std::move(min_board_hash));
             if (inserted) {
@@ -128,6 +179,7 @@ main(int argc, char* argv[])
           }
           bloom_confirmed.clear();
 
+          // Insert survivors that passed the disk file check.
           for (size_t nj = 0; nj < static_cast<size_t>(n_jobs); ++nj) {
             for (size_t sj = 0; sj < survivor_lists[nj].size(); ++sj) {
               if (survivor_checks[nj][sj]) {
@@ -145,6 +197,7 @@ main(int argc, char* argv[])
 
           time_insertion += get_current_time_ms() - tf4;
         } else {
+          // No disk files yet — all candidates only need in-memory dedup.
           time_file_check += get_current_time_ms() - tf3;
           long long tf4 = get_current_time_ms();
 
@@ -169,6 +222,7 @@ main(int argc, char* argv[])
           time_insertion += get_current_time_ms() - tf4;
         }
 
+        // --- Disk spill: prevent in-memory set from exceeding RAM budget ---
         long long tf5 = get_current_time_ms();
 
         while (results.size() >= MAX_IN_MEM) {
@@ -200,10 +254,13 @@ main(int argc, char* argv[])
         time_disk_spill += get_current_time_ms() - tf5;
       };
 
+      // --- Process each increment file from the previous round ---
       for (const std::string& filename : increment_files) {
         std::vector<Board> increments;
         increments.reserve(MAX_IN_MEM);
 
+        // Bulk file read: load entire file into memory buffer, then parse.
+        // Avoids per-line I/O syscall overhead.
         long long t0 = get_current_time_ms();
 
         fs::path filepath = fs::current_path() / "new_increments" / filename;
@@ -235,6 +292,7 @@ main(int argc, char* argv[])
           n_jobs_to_use = 1;
         }
 
+        // --- Process increments in chunks across threads ---
         for (size_t i = 0; i < increments.size();
              i += CHUNK_SIZE * n_jobs_to_use) {
           size_t chunk_end =
@@ -245,6 +303,10 @@ main(int argc, char* argv[])
           std::vector<std::vector<Board>> split_increments =
             split_list(chunk, n_jobs_to_use);
 
+          // STEP 1: Board generation (parallel).
+          // Each thread takes a subset of parent boards and generates all valid
+          // +1 increments, returning (board, canonical_hash) pairs. For combos,
+          // the canonical hash is the lexicographic minimum across all rotations.
           long long t1 = get_current_time_ms();
 
           std::vector<std::future<std::vector<std::pair<Board, std::string>>>>
@@ -265,6 +327,9 @@ main(int argc, char* argv[])
 
           time_board_gen += get_current_time_ms() - t1;
 
+          // STEP 2: In-memory dedup check.
+          // Check each candidate's hash against the in-memory results set.
+          // This is O(1) per lookup and eliminates most duplicates cheaply.
           std::vector<std::vector<uint8_t>> is_new_checks;
           is_new_checks.reserve(n_jobs_to_use);
           for (const auto& rl : results_lists)
@@ -277,6 +342,13 @@ main(int argc, char* argv[])
 
           time_mem_check += get_current_time_ms() - t2;
 
+          // STEP 3: Bloom filter triage.
+          // Candidates that survived in-memory check are tested against the
+          // Bloom filter (covers ALL known results, including on-disk).
+          //   - Bloom negative ("definitely new"): goes to bloom_confirmed,
+          //     will be inserted without any disk I/O.
+          //   - Bloom positive ("maybe seen"): goes to all_survivors, must be
+          //     batch-checked against disk files in flush_survivors.
           for (size_t nj = 0; nj < n_jobs_to_use; ++nj) {
             for (size_t j = 0; j < results_lists[nj].size(); ++j) {
               if (is_new_checks[nj][j]) {
@@ -290,13 +362,16 @@ main(int argc, char* argv[])
             }
           }
 
+          // Periodic flush to prevent unbounded memory growth.
           if (all_survivors.size() + bloom_confirmed.size() >= MAX_SURVIVORS)
             flush_survivors();
         }
       }
 
+      // Final flush: process any remaining candidates after all chunks.
       flush_survivors();
 
+      // Write any remaining new increments to disk for the next round.
       if (new_increments.size() > 0) {
         std::string filename = write_to_file(new_increments, "new_increments");
         new_increments_in_files += new_increments.size();
@@ -311,7 +386,8 @@ main(int argc, char* argv[])
 
     } else {
       // === SINGLE-THREADED PATH ===
-      // Simpler: generate increments and check against in-memory set directly.
+      // Simpler: generate all increments and check directly against the
+      // in-memory set. No disk spill, no Bloom filter, no batching needed.
       for (std::size_t i = 0; i < last_round_increments.size(); ++i) {
         Board last_round_new_increment = last_round_increments[i];
         std::unordered_map<std::string, Board> board_increments =
@@ -356,11 +432,11 @@ main(int argc, char* argv[])
       std::cout << std::endl;
     }
 
-    // Advance BFS frontier: this round's new boards become next round's inputs.
+    // Advance BFS frontier: this round's new boards become next round's input.
     last_round_increments = new_increments;
     new_increments.clear();
 
-    // Early termination: no new boards means we've found all reachable states.
+    // Early termination: no new boards means all reachable states are found.
     if (new_board_count == 0)
       break;
   }
