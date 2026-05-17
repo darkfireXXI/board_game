@@ -49,6 +49,9 @@ if __name__ in "__main__":
     columns = args.columns
     n_jobs = args.n_jobs
 
+    CHUNK_SIZE = 25_000
+    MAX_IN_MEM = 20_000_000
+
     Path("new_increments").mkdir(exist_ok=True)
     Path("results").mkdir(exist_ok=True)
 
@@ -72,9 +75,6 @@ if __name__ in "__main__":
             file.write("\n".join(bg_utils.hash_board(increment) for increment in last_round_increments))
 
         increment_files.append(filename)
-
-    CHUNK_SIZE = 25_000
-    MAX_IN_MEM = 20_000_000
 
     start = time.time()
 
