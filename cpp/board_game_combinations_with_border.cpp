@@ -137,12 +137,12 @@ main(int argc, char* argv[])
         long long tf3 = get_current_time_ms();
 
         if (!all_survivors.empty() && !result_files.empty()) {
-          // Distribute survivors across n_jobs lists for parallel file checking.
-          std::vector<std::vector<std::pair<Board, std::string>>> survivor_lists(
-            n_jobs);
+          // Distribute survivors across n_jobs lists for parallel file
+          // checking.
+          std::vector<std::vector<std::pair<Board, std::string>>>
+            survivor_lists(n_jobs);
           for (size_t si = 0; si < all_survivors.size(); ++si)
-            survivor_lists[si % n_jobs].push_back(
-              std::move(all_survivors[si]));
+            survivor_lists[si % n_jobs].push_back(std::move(all_survivors[si]));
           all_survivors.clear();
 
           std::vector<std::vector<uint8_t>> survivor_checks;
@@ -174,8 +174,7 @@ main(int argc, char* argv[])
               if (survivor_checks[nj][sj]) {
                 auto& [board_increment, min_board_hash] =
                   survivor_lists[nj][sj];
-                auto [it, inserted] =
-                  results.insert(std::move(min_board_hash));
+                auto [it, inserted] = results.insert(std::move(min_board_hash));
                 if (inserted) {
                   bloom.insert(*it);
                   new_increments.push_back(std::move(board_increment));
@@ -295,7 +294,8 @@ main(int argc, char* argv[])
           // STEP 1: Board generation (parallel).
           // Each thread takes a subset of parent boards and generates all valid
           // +1 increments, returning (board, canonical_hash) pairs. For combos,
-          // the canonical hash is the lexicographic minimum across all rotations.
+          // the canonical hash is the lexicographic minimum across all
+          // rotations.
           long long t1 = get_current_time_ms();
 
           std::vector<std::future<std::vector<std::pair<Board, std::string>>>>
