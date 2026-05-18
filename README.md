@@ -111,7 +111,7 @@ On a borderless board this is the most extreme playing field possible. Although 
  
 ### Wood Version
 Turns out I have CAD drawings (January 2016) for the wood version and a rendering:  
-![](images/Render1.png)
+![](https://github.com/darkfireXXI/Board_game/blob/images/Render1.png)
 
 ## Board Permutation Counting
 
@@ -144,7 +144,7 @@ Yeah, so that's not going to be solved anytime soon on a laptop. You can solve t
 
 The tree for a 2x2 board is shown below and confirms the number of combinations found by the in the code. Making any additional moves from the leaf nodes would either break the board's physics or create a repeat of a previous combination (eg. rotation or board height values are all +n height more than a previous board). Hopefully this illustrates that even for a small board the number of combinations quickly gets out of hand. As the boards become bigger we not only have more squares, but also the range of height gets larger. It actually scales with the size of the board: 2x2 ranges from -2 to +2 in height while 10x10 can go from -10 to +10 assuming a border. A borderless 10x10 board can range from 0 to 36.
 
-![](images/tree.jpg)
+![](https://github.com/darkfireXXI/Board_game/blob/images/tree.jpg)
 
 ## Permutation Theory
 
@@ -202,20 +202,20 @@ If these numbers seem too big for boards this small good! I'm skeptical myself a
 
 Another script extrapolates the current results to estimate the 10x10 board will have on the order of 10^24 permutations. Unfortunately that's tracking to be less than the Shannon number, [but is on par with the estimated number of setup permutations of Catan](https://www.reddit.com/r/Catan/comments/9uh2be/how_many_different_map_combinations_on_a_standard/). Regardless, the real objective is a board game where you will likely never play the same starting conditions twice, thus reducing the value of memorizing standard opening practices.
 
-![](images/extrapolation.jpg)
+![](https://github.com/darkfireXXI/Board_game/blob/images/extrapolation.jpg)
 
 ### Video Game Version
 Seeing as I didn't have access to a wood shop, but my computer runs python I began coding the game. Creating a matrix for the board and then using it to make a 3D plot was very straightforward, but randomizing the board was a fun challenge. Furthermore, I didn't want it to be absolutely random, but random within a user defined window. The best way to understand this is to look at the terminal interface to get a sense of the game start up:
-![](images/terminal_interface.png)  
+![](https://github.com/darkfireXXI/Board_game/blob/images/terminal_interface.png)  
 Users can select if they want to play on mountains or valleys and from within this selection adjust the extremity of the terrain. **Yet**, even with this level of specification I still **guarantee** that if you pick Medium Mountains 1000 times in a row you will **never** get the same board twice! I encourage you to run game.py and see for yourself!  
 
 Now let's take a look at what this would look like:  
 Mountains:  
-![](images/mountain.png)  
+![](https://github.com/darkfireXXI/Board_game/blob/images/mountain.png)  
 Valley:  
-![](images/valley.png)  
+![](https://github.com/darkfireXXI/Board_game/blob/images/valley.png)  
 There's even a Special Terrain called Mixed Mountains & Valleys that generates landscapes like this:  
-![](images/mixed.png)  
+![](https://github.com/darkfireXXI/Board_game/blob/images/mixed.png)  
 And no, that doesn't violate board physics.  
 There are some other things going on behind the scenes here that were interesting to code. When plotting the board height differences of 2 will leave unsightly gaps in the render. The easy fix is to simply plot everything a second time under itself to close the gaps. This is not only lazy, but also slows the graphics as then it has to keep track of 200 cubes opposed to a 100 plus some space fillers. A better method can be viewed in the plot_board function in game.py. Another fun feature was getting it color code the cubes according to height.
 ### Next Steps
