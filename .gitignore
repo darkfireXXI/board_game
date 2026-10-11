@@ -131,21 +131,8 @@ dmypy.json
 # Apple nonsense
 **/.DS_Store
 
-# /backtesting/[strategy]/results results
-/backtesting/*/results/
-
-# /data_collection data sets
-/data_collection/**/*.csv
-/data_collection/**/*.yaml
-# include assets
-!/data_collection/assets
-
-# /exchanges/[exchange]/[strategy]/ log files and parameters
-/exchanges/*/*/*.csv
-/exchanges/*/*/*.txt
-/exchanges/*.csv
-/exchanges/*.xlsx
-/exchanges/*.lock
-
-# live_tracking/reports/
-/live_tracking/reports/
+# Compiled C++ binaries (extensionless outputs of `make compile`)
+/cpp_*/board_game_*
+!/cpp_*/board_game_*.*
+*.o
+*.dSYM/

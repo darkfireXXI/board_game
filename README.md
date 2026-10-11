@@ -35,7 +35,7 @@ The original board game idea probably came to me around 2015. Since then it's mo
 
 ## Board Physics
 
-The board game is 10 by 10 square grid made of 100 blocks. Each block can move a maximum of 2 units relative to its orthogonal adjacent blocks (up, down, left, right - **not** diagonals). Each unit of height is marked by a notch on the block, discretizing height into whole-number increments. If I've already lost you just scroll down to the [Wood Version](#wood-version) section for a visual aid.
+The board game is a 10 by 10 square grid made of 100 blocks. Each block can move a maximum of 2 units relative to its orthogonal adjacent blocks (up, down, left, right - **not** diagonals). Each unit of height is marked by a notch on the block, discretizing height into whole-number increments. If I've already lost you just scroll down to the [Wood Version](#wood-version) section for a visual aid.
 
 A wooden version would need to be enclosed by a thin wall to contain all the blocks. Now that I've 3D printed this board with a different interlocking mechanism, or for a virtual version, the border is not necessary. This leads to different numbers of permutations depending on whether or not there is a border.
 
@@ -118,7 +118,7 @@ Turns out I have CAD drawings (January 2016) for the wood version and a renderin
 
 ## Board Permutation Counting
 
-Now that we've established the board physics we want to figure out how many different permutations there are between the two extremities shown above? Both for the board with and without a border.
+Now that we've established the board physics we want to figure out how many different permutations there are between the two extremities shown above. Both for the board with and without a border.
 
 We should also clarify that throughout the rest of this the words combinations and permutations will have these definitions in our context:
 
@@ -128,17 +128,17 @@ We should also clarify that throughout the rest of this the words combinations a
 
 Permutations are more relevant to gameplay. A single board with no rotational symmetry provides 4 unique play experiences depending on which side player 1 is positioned.
 
-Let's start small. A 1x1 board; one square with values -2 <= height <= 2. We can increment through the heights and rotate it how we like, but in the end there's only one unique permutation. Next we can take a 2x2 board. We start at the lower extremity with each square's height value = -2. With two nested for loops we can increment each square on the board once. How many times do we have to do this?  
+Let's start small. A 1x1 board; one square with values -2 <= height <= 2. We can increment through the heights and rotate it how we like, but in the end there's only one unique combination. Next we can take a 2x2 board. We start at the lower extremity with each square's height value = -2. With two nested for loops we can increment each square on the board once. How many times do we have to do this?  
 
 <pre>
-(4 squares * 2 height) - (4 squares * -2 height) = 16 total moves from the lowest board to the highest
+(4 squares × 2 height) - (4 squares × -2 height) = 16 total moves from the lowest board to the highest
 </pre>
 
 We record the starting board as a unique board result. Then we increment one square one unit and check to see if this new board is already recorded among the unique board results. The verification checks include 90° rotations and checking height offsets. A board with all values at 0 is the same as a board with all values at 2. If the new board doesn't match any of the unique board results we add it to the list.
 
 This would be the first of 4 squares to check in the 2x2 example. We would then return to our starting board and try moving the additional 3 squares and repeating the checks, adding new unique boards if found.
 
-Now those 16 moves calculated above should really be thought of as 16 rounds. In each round, we move one block up one unit up, check if the resulting board is unique, then return to the starting board and repeat for the remaining blocks. In the subsequent round, the starting board is no longer the board of heights all -2. We now have several starting boards, which are all the unique board results found in the previous round.
+Now those 16 moves calculated above should really be thought of as 16 rounds. In each round, we move one block up one unit, check if the resulting board is unique, then return to the starting board and repeat for the remaining blocks. In the subsequent round, the starting board is no longer the board of heights all -2. We now have several starting boards, which are all the unique board results found in the previous round.
 
 We repeat this until all the rounds and permutations are exhausted.
 
@@ -152,9 +152,9 @@ And for each board result we can increment it 100 ways, one increment for each o
 
 Yeah, so that's not going to be solved anytime soon on a laptop. I originally ran this on my laptop, then moved it to AWS, and eventually refactored the counting scripts from python to c++ and ran on a desktop formerly used for algorithmic trading backtesting. All this in effort to count the number of permutations for the 10x10 board.
 
-### 2x2 Permutation Tree
+### 2x2 Combination Tree
 
-The tree for a 2x2 board is shown below and confirms the number of permutations found by the code. Making any additional moves from the leaf nodes would either break the board's physics or create a repeat of a previous permutation (eg. rotation or board height values are all +n height more than a previous board). Hopefully this illustrates that even for a small board the number of permutations quickly gets out of hand.
+The tree for a 2x2 board is shown below and confirms the number of combinations found by the code. Making any additional moves from the leaf nodes would either break the board's physics or create a repeat of a previous combination (eg. rotation or board height values are all +n height more than a previous board). Hopefully this illustrates that even for a small board the number of combinations quickly gets out of hand.
 
 As the boards become bigger we not only have more squares, but also the range of height gets larger. It actually scales with the size of the board: 2x2 ranges from -2 to +2 in height while 10x10 can go from -10 to +10 assuming a border. A borderless 10x10 board can range from 0 to 36.
 
@@ -162,7 +162,7 @@ As the boards become bigger we not only have more squares, but also the range of
 
 ## Permutation Theory
 
-As it is compute intensive to brute force count all the permutations, I made an exploration into the theory to check if I was on track. Each square of the board can be considered to start at height 0 and have the ability to move to heights -2, -1, 0, 1, and 2. This gives each square 5 possible heights. As a back-of-the-envelope calculation we can estimate the number of permutations for a 10x10 board as 5^(10 * 10) = 7.888 * 10^69. This can be our upper bound as to how many permutations exist. This overcounts the actual number because it ignores the adjacency constraint. For example, it includes boards where one block is at -2 and its neighbor is at 2, which would be invalid. Not to mention, for the board with a border, that creates a boundary condition that further limits permutations. Of course, we would also like to not include duplicates that can be made via adding a constant to the height of every square or rotating the board 90°.
+As it is compute intensive to brute force count all the permutations, I made an exploration into the theory to check if I was on track. Each square of the board can be considered to start at height 0 and have the ability to move to heights -2, -1, 0, 1, and 2. This gives each square 5 possible heights. As a back-of-the-envelope calculation we can estimate the number of permutations for a 10x10 board as 5^(10 × 10) = 7.888 × 10^69. This can be our upper bound as to how many permutations exist. This overcounts the actual number because it ignores the adjacency constraint. For example, it includes boards where one block is at -2 and its neighbor is at 2, which would be invalid. Not to mention, for the board with a border, that creates a boundary condition that further limits permutations. Of course, we would also like to not include duplicates that can be made via adding a constant to the height of every square or rotating the board 90°.
 
 ## Permutations
 
@@ -173,13 +173,13 @@ Below are the results of running the c++ counting script. To be more comprehensi
 | Rows x Cols | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | **1** | 1 | 5 | 25 | 125 | 625 | 3,125 | 15,625 | 78,125 | 390,625 | 1,953,125 |
-| **2** | 5 | 85 | 1,459 | 25,061 | 430,491 | 7,394,885 | 127,027,835 | 2,182,057,437 | ? | ? |
+| **2** | 5 | 85 | 1,459 | 25,061 | 430,491 | 7,394,885 | 127,027,835 | 2,182,058,437 | ? | ? |
 | **3** | 25 | 1,459 | 87,825 | 5,305,715 | 320,673,823 | ? | ? | ? | ? | ? |
 | **4** | 125 | 25,061 | 5,305,715 | 1,133,641,543 | ? | ? | ? | ? | ? | ? |
 | **5** | 625 | 430,491 | 320,673,823 | ? | ? | ? | ? | ? | ? | ? |
 | **6** | 3,125 | 7,394,885 | ? | ? | ? | ? | ? | ? | ? | ? |
 | **7** | 15,625 | 127,027,835 | ? | ? | ? | ? | ? | ? | ? | ? |
-| **8** | 78,125 | 2,182,057,437 | ? | ? | ? | ? | ? | ? | ? | ? |
+| **8** | 78,125 | 2,182,058,437 | ? | ? | ? | ? | ? | ? | ? | ? |
 | **9** | 390,625 | ? | ? | ? | ? | ? | ? | ? | ? | ? |
 | **10** | 1,953,125 | ? | ? | ? | ? | ? | ? | ? | ? | ? |
 
@@ -192,7 +192,7 @@ What if we then took the ratio of each row from the one before it? Essentially m
 | Rows \ Cols | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | **1** | - | - | - | - | - | - | - | - | - | - |
-| **2** | 5 | 17 | 58.36 | 200.49 | 688.79 | 2,366.36 | 8,129.78 | 27,930.34 |  |  |
+| **2** | 5 | 17 | 58.36 | 200.49 | 688.79 | 2,366.36 | 8,129.78 | 27,930.35 |  |  |
 | **3** | 5 | 17.16 | 60.20 | 211.71 | 744.90 |  |  |  |  |  |
 | **4** | 5 | 17.18 | 60.41 | 213.66 |  |  |  |  |  |  |
 | **5** | 5 | 17.18 | 60.44 |  |  |  |  |  |  |  |
@@ -223,48 +223,36 @@ It appears the growth factor for adding a single additional row to any given boa
 
 ### Average Positions Available per Block
 
-As we established earlier in the Permutation Theory section, any two blocks can have at most 5 distinct positions relative to one another. After calculating the second-order growth factor, we start to converge on a value that takes into account that on an actual board, due to the physical constraints and positions of neighboring blocks all 5 positions will not always be available. While calculating the rectangular boards gave us the data points needed to observe convergence, we ultimately only really care about the 10x10 square board without a border. Therefore, if we look along the diagonal of the last matrix (where rows equal columns), we see the second-order growth factor, slowly increasing as it converges. The most recent value is 3.54. Based on the current trend, we can anticipate that this value will likely continue to increase slightly, but for the sake of this exercise we can commit to 3.54 as our final number of positions per block. Since 3.54 is likely a slight underestimate, our final calculation is conservative.
+As we established earlier in the Permutation Theory section, any two blocks can have at most 5 distinct positions relative to one another. After calculating the second-order growth factor, we start to converge on a value that takes into account that on an actual board, due to the physical constraints and positions of neighboring blocks all 5 positions will not always be available. While calculating the rectangular boards gave us the data points needed to observe convergence, we ultimately only really care about the 10x10 square board without a border. Therefore, if we look along the diagonal of the last matrix (where rows equal columns), we see the second-order growth factor slowly increasing as it converges. The most recent value is 3.54. Based on the current trend, we can anticipate that this value will likely continue to increase slightly, but for the sake of this exercise we can commit to 3.54 as our final number of positions per block. Since 3.54 is likely a slight underestimate, our final calculation is conservative.
 
 ## Estimated Starting Positions
 
-3.54^100
-way more than fischer random 960
-less than shannon number
-but still pretty good and about equal to catan
+Now using our estimated 3.54 positions per block, if we take that to the power of 100 for the 10x10 board we get:
 
+<pre>
+3.54^100 =  7.949 × 10^54
+</pre>
 
+That's a rather large number! It absolutely dwarfs Fischer Random's 960 starting positions and [is 26 orders of magnitude larger than the estimated number of setup permutations of Catan](https://www.reddit.com/r/Catan/comments/9uh2be/how_many_different_map_combinations_on_a_standard/).
 
-## Permutations
+## Confirmed Number of Starting Positions
 
-Here are the results so far:
+On September 30th 2026, shortly after Claude Opus 5.5 was released I decided to hand this problem off to the AI as a test of the latest model. I asked the AI to either improve the existing scripts (even if just marginally) or, if it thought it possible, outright solve the problem. In several minutes it came up with a transfer matrix approach to solve the problem outright and calculate that for the 10x10 borderless board there are:
 
-| Board Size | Permutations with Border | Permutations no Border |
-| --- | --- | --- |
-| 1x1 | 1 | 1 |
-| 2x2 | 23 | 23 |
-| 3x3 | 20,389 | 22,050 |
-| 4x4 | 207,016,289 | 283,415,151 |
-| 10x10 | ? | ? |
+<pre>
+751,446,302,681,050,365,478,027,416,872,495,407,843,190,771,097,924,033,841
+</pre>
 
-If these numbers seem too big for boards this small good! I'm skeptical myself and encourage people to check the codes used for these calculations in this repository!
+permutations, or more simply 7.51 × 10^56. This is actually quite close to our original estimate and its 100th root is 3.705. While this result doesn't materially change the outcome and conclusion, it is satisfying to finally have the answer to the problem. More information on this solve [is found here](cpp_transfer_matrix/README.md).
 
-Another script extrapolates the current results to estimate the 10x10 board will have on the order of 10^24 permutations. Unfortunately that's tracking to be less than the Shannon number, [but is on par with the estimated number of setup permutations of Catan](https://www.reddit.com/r/Catan/comments/9uh2be/how_many_different_map_combinations_on_a_standard/). Regardless, the real objective is a board game where you will likely never play the same starting conditions twice, thus reducing the value of memorizing standard opening practices.
+## Conclusion
 
-![](https://github.com/darkfireXXI/Board_game/blob/images/extrapolation.jpg)
+The original goal was to address the major flaws of many prominent classical board games. The board surface here undoubtedly shows that a game can exist on this board where the likelihood of ever playing two games with the same starting position is virtually zero. To really put this in perspective, if every person on Earth played one game per second, it would take roughly 10^29 times the age of the universe to play every starting position. Therefore we have eliminated opening theory and reduced the effectiveness of memorizing fixed move sequences and blatant pattern recognition.
 
-### Video Game Version
-Seeing as I didn't have access to a wood shop, but my computer runs python I began coding the game. Creating a matrix for the board and then using it to make a 3D plot was very straightforward, but randomizing the board was a fun challenge. Furthermore, I didn't want it to be absolutely random, but random within a user defined window. The best way to understand this is to look at the terminal interface to get a sense of the game start up:
-![](https://github.com/darkfireXXI/Board_game/blob/images/terminal_interface.png)  
-Users can select if they want to play on mountains or valleys and from within this selection adjust the extremity of the terrain. **Yet**, even with this level of specification I still **guarantee** that if you pick Medium Mountains 1000 times in a row you will **never** get the same board twice! I encourage you to run game.py and see for yourself!  
+The Shannon Number was a lofty numerical goal. It gave us a measurable target to hit: make a game with more starting positions than there are possible games of chess. While the board has fewer starting arrangements than the Shannon Number, recall that was never a fair comparison as it's comparing starting positions to possible games played. Also recall, chess has one starting position. Even if we assume the game played on this board has game trees a trillion times smaller than chess, it follows that:
 
-Now let's take a look at what this would look like:  
-Mountains:  
-![](https://github.com/darkfireXXI/Board_game/blob/images/mountain.png)  
-Valley:  
-![](https://github.com/darkfireXXI/Board_game/blob/images/valley.png)  
-There's even a Special Terrain called Mixed Mountains & Valleys that generates landscapes like this:  
-![](https://github.com/darkfireXXI/Board_game/blob/images/mixed.png)  
-And no, that doesn't violate board physics.  
-There are some other things going on behind the scenes here that were interesting to code. When plotting the board height differences of 2 will leave unsightly gaps in the render. The easy fix is to simply plot everything a second time under itself to close the gaps. This is not only lazy, but also slows the graphics as then it has to keep track of 200 cubes opposed to a 100 plus some space fillers. A better method can be viewed in the plot_board function in game.py. Another fun feature was getting it color code the cubes according to height.
-### Next Steps
-I began coding the gameplay, but stopped after realizing that I had never actually played this game in any context (eg. on paper using marker caps for figures), so hard coding rules that are highly subject to change as I get user feedback was not on my agenda. Once I've gotten more user feedback from mock games I will continue to code out the game play. In the meantime I've been considering switching from matplotlib plotting to creating my own GUI.
+<pre>
+7.51 × 10^56 starting positions  ×  10^108 games each  =  7.51 × 10^164 possible games
+</pre>
+
+In this sense, now comparing possible games that could be played on this board to chess, we have absolutely blown the Shannon Number out of the water by a factor of 10^44. Better yet, we have shown mathematically that no one can prepare for a game on this board ahead of time. Therefore any game played would be entirely decided by true intellect and strategic thinking, starting from the first move, every game.
